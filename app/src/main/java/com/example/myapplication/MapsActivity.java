@@ -94,6 +94,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
                 getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
         autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME));
+        autocompleteFragment.setCountry("BR");
         autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
             public void onPlaceSelected(Place place) {
@@ -168,9 +169,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     fetchLastLocation();
                 }
                 break;
-
         }
-
     }
     public void onClick(View v){
         startVoiceRecognitionActivity();
@@ -180,8 +179,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         myButton = findViewById(R.id.sd);
     }
     public void startVoiceRecognitionActivity(){
-
-
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());

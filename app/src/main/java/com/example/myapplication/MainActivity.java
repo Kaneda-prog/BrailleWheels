@@ -11,6 +11,7 @@ import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.Switch;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -19,12 +20,17 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity implements OnClickListener{
 public ListView myList;
 public Button myButton;
+boolean enjoy = false;
+public Switch cool;
+
 public static final int VOICE_RECOGNIZITION_REQUESTCODE = 1234;
     @Override
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        cool = findViewById(R.id.switch1);
+        cool.setOnClickListener(this);
         myButton = findViewById(R.id.speak);
         myButton.setOnClickListener(this);
         voiceinputbuttons();
@@ -40,9 +46,17 @@ public static final int VOICE_RECOGNIZITION_REQUESTCODE = 1234;
     }
 
     public void onClick(View v){
-        startVoiceRecognizitionActivity();
-
-
+        if(v == myButton) {
+            if(enjoy) {
+                startVoiceRecognizitionActivity();
+            }
+            else {
+                Intent intent = new Intent(this, MapsActivity.class);
+                startActivity(intent);
+            }
+        }
+        if(v == cool)
+        enjoy = !enjoy;
     }
     public void voiceinputbuttons(){
         myButton = findViewById(R.id.speak);
