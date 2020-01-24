@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "124739676815",
+    "firebase_url": "https://capable-sphinx-265014.firebaseio.com",
+    "project_id": "capable-sphinx-265014",
+    "storage_bucket": "capable-sphinx-265014.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:124739676815:android:a5a8f971d0839d5f45defa",
+        "android_client_info": {
+          "package_name": "com.example.myapplication"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "124739676815-i0mueetipe1cho5aan7rgj8fnj1pll92.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.myapplication",
+            "certificate_hash": "f4dadbc2d8f9433a92ce5f93926d32a79933f7ef"
+          }
+        },
+        {
+          "client_id": "124739676815-sfdm0snoprs83pcu01214nmv67j2ku2p.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBqcMNFj7SKd36Zp9PPqq8s6rAeVskt3DY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "124739676815-sfdm0snoprs83pcu01214nmv67j2ku2p.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
