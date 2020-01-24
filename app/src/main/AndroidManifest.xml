@@ -20,10 +20,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <service
-            android:name=".FloatingOverMapIconService"
-            android:enabled="true"
-            android:exported="true"></service>
         <!--
              The API key for Google Maps-based APIs is defined as a string resource.
              (See the file "res/values/google_maps_api.xml").
@@ -42,6 +38,10 @@
         <activity
             android:name=".MapsActivity"
             android:label="@string/title_activity_maps" />
+        <service
+            android:name=".FloatingOverMapIconService"
+            android:enabled="true"
+            android:exported="false" />
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -50,9 +50,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".Utils.FloatingOverMapIconService"
-            android:exported="false" />
     </application>
 
 </manifest>

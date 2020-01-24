@@ -5,13 +5,18 @@ import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.FragmentActivity;
 
 import android.Manifest;
+import android.annotation.TargetApi;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Toast;
@@ -55,6 +60,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     //Requests
     private static final int REQUEST_CODE = 101;
     public static final int VOICE_RECOGNIZITION_REQUESTCODE = 1;
+    public static final int THE_CODE = 221;
 
     //Alone button view :O
     public Button myButton;
@@ -66,11 +72,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     //Other stuff
     Geocoder geocoder;
     List<Address> add;
+    private static final int SYSTEM_ALERT_WINDOW_PERMISSION = 3030;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_maps);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            askPermission();
+        }
+
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         myButton = findViewById(R.id.sd);
         myButton.setOnClickListener(this);
@@ -113,12 +124,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 LatLng lani = new LatLng(address.getLatitude(), address.getLongitude());
                 mMap.addMarker(new MarkerOptions().position(lani).title("Let's go here!"));
 
-
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                    startService(new Intent(MapsActivity.this, FloatingOverMapIconService.class));
+                    finish();
+                } else if (Settings.canDrawOverlays(getApplicationContext())) {
+                    startService(new Intent(MapsActivity.this, FloatingOverMapIconService.class));
+                    finish();
+                } else {
+                    askPermission();
+                    Toast.makeText(getApplicationContext(), "You need System Alert Window Permission to do this", Toast.LENGTH_SHORT).show();
+                }
                 //http://maps.google.com/maps?daddr=lat,long&dirflg=r  to search
-                        Uri gmmIntentUri = Uri.parse("google.navigation:q="+ destination.getName() +",+Rio+de+Janeiro,Brazil&mode=transit");
-                Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-                mapIntent.setPackage("com.google.android.apps.maps");
-                startActivity(mapIntent);
 
             }
 
@@ -130,6 +146,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         });
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
+    }
+    private void askPermission() {
+        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getPackageName()));
+        startActivityForResult(intent, SYSTEM_ALERT_WINDOW_PERMISSION);
     }
     private void fetchLastLocation() {
         if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
@@ -171,8 +192,25 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 break;
         }
     }
+    
     public void onClick(View v){
-        startVoiceRecognitionActivity();
+        Uri gmmIntentUri = Uri.parse("google.navigation:q=Maracanã,+Rio+de+Janeiro,Brazil&mode=transit");
+        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+        mapIntent.setPackage("com.google.android.apps.maps");
+        startActivity(mapIntent);
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            startService(new Intent(MapsActivity.this, FloatingOverMapIconService.class));
+            finish();
+        } else if (Settings.canDrawOverlays(getApplicationContext())) {
+            startService(new Intent(MapsActivity.this, FloatingOverMapIconService.class));
+            finish();
+        } else {
+            askPermission();
+            Toast.makeText(getApplicationContext(), "You need System Alert Window Permission to do this", Toast.LENGTH_SHORT).show();
+        }
+
+        //startVoiceRecognitionActivity();
     }
 
     public void voiceInputButtons(){
@@ -204,3 +242,5 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     
 
 }
+
+
