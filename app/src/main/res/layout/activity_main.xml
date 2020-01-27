@@ -6,14 +6,6 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <WebView
-        android:id="@+id/web"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toTopOf="@+id/speak"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
     <Button
         android:id="@+id/speak"
         android:layout_width="166dp"
@@ -36,16 +28,14 @@
         android:layout_marginTop="500dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
-
+    <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:tools="http://schemas.android.com/tools"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context="info.androidhive.jsonparsing.MainActivity">
     <ListView
         android:id="@+id/list"
-        android:layout_width="409dp"
-        android:layout_height="214dp"
-        android:layout_marginStart="1dp"
-        android:layout_marginTop="376dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" >
-
-    </ListView>
-
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"/>
+    </RelativeLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
