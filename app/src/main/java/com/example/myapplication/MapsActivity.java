@@ -61,6 +61,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static final int REQUEST_CODE = 101;
     public static final int VOICE_RECOGNIZITION_REQUESTCODE = 1;
     public static final int THE_CODE = 221;
+    private static final int SYSTEM_ALERT_WINDOW_PERMISSION = 3030;
 
     //Alone button view :O
     public Button myButton;
@@ -72,11 +73,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     //Other stuff
     Geocoder geocoder;
     List<Address> add;
-    private static final int SYSTEM_ALERT_WINDOW_PERMISSION = 3030;
+    Locale locale = new Locale("pt", "BR");
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Locale.setDefault(locale);
         setContentView(R.layout.activity_maps);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             askPermission();
@@ -194,7 +197,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
     
     public void onClick(View v){
-        Uri gmmIntentUri = Uri.parse("google.navigation:q=Maracanã,+Rio+de+Janeiro,Brazil&mode=transit");
+        /*Uri gmmIntentUri = Uri.parse("google.navigation:q=Maracanã,+Rio+de+Janeiro,Brazil&mode=transit");
         Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
         mapIntent.setPackage("com.google.android.apps.maps");
         startActivity(mapIntent);
@@ -209,18 +212,19 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             askPermission();
             Toast.makeText(getApplicationContext(), "You need System Alert Window Permission to do this", Toast.LENGTH_SHORT).show();
         }
-
-        //startVoiceRecognitionActivity();
+*/
+        startVoiceRecognitionActivity();
     }
 
     public void voiceInputButtons(){
         myButton = findViewById(R.id.sd);
     }
     public void startVoiceRecognitionActivity(){
+
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Speech recogniztion demo");
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().getLanguage());
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "say your fucking destination right now");
         startActivityForResult(intent, VOICE_RECOGNIZITION_REQUESTCODE);
     }
 
@@ -233,7 +237,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
                     getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
             autocompleteFragment.setText(speech);
-            Toast.makeText(this, speech, Toast.LENGTH_SHORT).show();
+            Uri gmmIntentUri = Uri.parse("google.navigation:q="+speech+",+Rio+de+Janeiro,Brazil&mode=transit");
+            Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+            mapIntent.setPackage("com.google.android.apps.maps");
+            startActivity(mapIntent);
 
 
         }
