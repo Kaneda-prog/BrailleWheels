@@ -5,7 +5,6 @@ import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
 import android.app.ProgressDialog;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -15,10 +14,10 @@ import android.speech.RecognizerIntent;
 import android.util.Log;
 import android.view.View.OnClickListener;
 import android.view.View;
-import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListAdapter;
@@ -29,7 +28,6 @@ import android.widget.Toast;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 
@@ -37,36 +35,32 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-
 
 
 public class MainActivity extends AppCompatActivity implements OnClickListener {
     private String TAG = MainActivity.class.getSimpleName();
     public ListView myList;
     public Button myButton;
-    boolean enjoy = false;
     public Switch cool;
     public WebView view;
-    static int wow;
-    static Location currentLocation;
-    FusedLocationProviderClient fusedLocationProviderClient;
-    private static final int REQUEST_CODE = 10;
-    ProgressDialog pd;
-    public static final int VOICE_RECOGNIZITION_REQUESTCODE = 1234;
+
     public String BUS_NUMBER;
     public String BUS_STOP;
-    String url = "https://maps.googleapis.com/maps/api/directions/json?origin=Liceu+Franco+Brasileiro&destination=Maracana%2CRio+de+Janeiro&mode=transit&alternatives=true&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag";
+    private static final int REQUEST_CODE = 10;
+    public static final int VOICE_RECOGNIZITION_REQUESTCODE = 1234;
+    public static int curRoute;
+
+    static Location currentLocation;
+    FusedLocationProviderClient fusedLocationProviderClient;
+
+    ProgressDialog pd;
+
+    static public JSONArray json_object;
+    boolean enjoy = false;
+    String url = "https://maps.googleapis.com/maps/api/directions/json?origin=Liceu+Franco+Brasileiro&destination=Maracana%2CRio+de+Janeiro&mode=transit&alternatives=true&transit_mode=bus&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag";
     JSONObject leObject;
     ArrayList<HashMap<String, String>> contactList;
 
@@ -74,7 +68,19 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        myList = findViewById(R.id.list);
+        myList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Intent in = new Intent(getApplicationContext(), RouteInfo.class);
 
+                curRoute = position +1;
+                in.putExtra("route",curRoute);
+                Log.i(TAG, "This" + curRoute);
+                startActivity(in);
+
+            }
+        });
         contactList = new ArrayList<>();
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
@@ -151,7 +157,7 @@ public void text()
 
     public void voiceinputbuttons() {
         myButton = findViewById(R.id.speak);
-        myList = findViewById(R.id.list);
+
     }
 
     public void startVoiceRecognizitionActivity() {
@@ -180,7 +186,6 @@ public void text()
 
 
     private class GetContacts extends AsyncTask<Void, Void, Void> {
-
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
@@ -199,19 +204,20 @@ public void text()
             // Making a request to url and getting response
             String jsonStr = sh.makeServiceCall(url);
 
-            Log.e(TAG, "Response from url: " + jsonStr);
+            Log.d(TAG, "Response from url: " + jsonStr);
 
             if (jsonStr != null) {
                 try {
                     JSONObject jsonObj = new JSONObject(jsonStr);
-
                     // Getting JSON Array node
                     JSONArray routes = jsonObj.getJSONArray("routes");
-
-                    // looping through All Contacts
+                    json_object = routes;
+                    // looping through All Routes
                     for (int i = 0; i < routes.length(); i++) {
-                        JSONObject c = routes.getJSONObject(i);
 
+                        JSONObject c = routes.getJSONObject(i);
+                        HashMap<String, String> contact = new HashMap<>();
+                        int gole = i +1;
                        /* String id = c.getString("transit_details");
                         String name = c.getString("name");
                         String email = c.getString("email");
@@ -220,22 +226,87 @@ public void text()
 */
                         // Phone node is JSON Object
                         JSONObject phone = c.getJSONObject("fare");
-                        String mobile = phone.getString("currency");
-                        String home = phone.getString("text");
-                        String office = phone.getString("value");
+                        String currency = phone.getString("currency");
+                        String text = phone.getString("text");
+                        String value = phone.getString("value");
 
-                        // tmp hash map for single contact
-                        HashMap<String, String> contact = new HashMap<>();
+                        //Looping through all Legs in all routes
+                        JSONArray legs = c.getJSONArray("legs");
+                        for (int o = 0; o < legs.length(); o++) {
+                            JSONObject d = legs.getJSONObject(o);
 
-                        // adding each child node to HashMap key => value
-                        contact.put("id", mobile);
-                        contact.put("name",home);
-                        contact.put("email", office);
-                        contact.put("mobile", mobile);
+                            JSONObject arrival = d.getJSONObject("arrival_time");
+                            String arrivalT = arrival.getString("text");
 
-                        // adding contact to contact list
-                        contactList.add(contact);
+                            //Info
+                            JSONObject departure = d.getJSONObject("departure_time");
+                            String departureT = departure.getString("text");
+                            JSONObject distance = d.getJSONObject("distance");
+                            String dist = distance.getString("text");
+                            JSONObject duration = d.getJSONObject("duration");
+                            String durationT = duration.getString("text");
+
+                            JSONArray steps = d.getJSONArray("steps");
+                            for (int e = 0; e< steps.length(); e++) {
+                                JSONObject a = steps.getJSONObject(e);
+                                String mode = a.getString("travel_mode");
+
+                                Log.i(TAG, "Hello" + mode +i);
+                                int num = 0;
+                                if (mode == "TRANSIT"){
+                                    Log.i(TAG, "OH YEAH");
+                                }else{
+                                    throw new JSONException("a");
+                                }
+                                if(a.getString("travel_mode") == "TRANSIT") {
+                                    Log.i(TAG, "OH YEAH");
+                                    num ++;
+                                    /**
+                                    JSONObject details = a.getJSONObject("transit_details");
+                                    JSONObject aStop = details.getJSONObject("arrival_stop");
+                                    JSONObject aLocation = aStop.getJSONObject("location");
+                                    String lat = aLocation.getString("lat");
+                                    String lng = aLocation.getString("lng");
+                                    String stopLocation = lat + ", " + lng;
+                                    JSONObject line = a.getJSONObject("line");
+                                    String busNumber = line.getString("shortname");
+                                    String type = line.getString("type");
+                                    String color = line.getString("color");
+                                    String busName = line.getString("name");
+                                    String stopsNum = a.getString("num_stops");
+                                    Log.e(TAG, "Hello" + stopsNum);
+                                    Log.println(Log.VERBOSE, TAG, stopsNum);
+                                     **/
+
+                                }
+
+
+                            }
+
+                            // tmp hash map for single contact
+                            //contact.put("stopsNum", stopsNum );
+                            // adding each child node to HashMap key => value
+                            contact.put("totalTime", departureT + " > " + arrivalT);
+                            contact.put("distance", dist);
+                            contact.put("duration", durationT);
+                            contact.put("price", text);
+                            contact.put("val", gole + ".");
+
+
+                            // adding contact to contact list
+                            contactList.add(contact); /**
+
+                                    //Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>smashicons" title="Smashicons">Smashicons</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
+                                    //Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>photo3idea-studio" title="photo3idea_studio">photo3idea_studio</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
+
+                                   **/
+
+                        }
+
+
                     }
+
+
                 } catch (final JSONException e) {
                     Log.e(TAG, "Json parsing error: " + e.getMessage());
                     runOnUiThread(new Runnable() {
@@ -265,7 +336,12 @@ public void text()
 
             return null;
         }
+public void makeStuff(){
 
+
+
+
+}
         @Override
         protected void onPostExecute(Void result) {
             super.onPostExecute(result);
@@ -277,12 +353,12 @@ public void text()
              * */
             ListAdapter adapter = new SimpleAdapter(
                     MainActivity.this, contactList,
-                    R.layout.list_item, new String[]{"name", "email",
-                    "mobile"}, new int[]{R.id.name,
-                    R.id.email, R.id.mobile});
+                    R.layout.list_item, new String[]{"totalTime", "duration",
+                    "price", "distance", "busNumber","val", "stopsNum"}, new int[]{R.id.totalTime,
+                    R.id.duration, R.id.price, R.id.distance, R.id.busNumber, R.id.route, R.id.stops});
 
             myList.setAdapter(adapter);
-        }
 
     }
+}
 }
