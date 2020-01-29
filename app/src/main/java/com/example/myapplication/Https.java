@@ -14,10 +14,6 @@ import java.net.URL;
 
     import javax.net.ssl.HttpsURLConnection;
 
-/**
-     * Created by Ravi Tamada on 01/09/16.
-     * www.androidhive.info
-     */
     public class Https {
 
         private static final String TAG = Https.class.getSimpleName();
