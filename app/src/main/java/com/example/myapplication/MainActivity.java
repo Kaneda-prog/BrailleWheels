@@ -10,8 +10,11 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.speech.RecognizerIntent;
 import android.util.Log;
 import android.view.View.OnClickListener;
@@ -72,7 +75,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
     FusedLocationProviderClient fusedLocationProviderClient;
 
     ProgressDialog pd;
-
+    private static final int SYSTEM_ALERT_WINDOW_PERMISSION = 3001;
     static public JSONArray json_object;
     boolean enjoy = false;
     //-22.9596397,-43.2011472
@@ -81,8 +84,11 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
     Locale locale = new Locale("pt", "BR");
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Locale.setDefault(locale);
         super.onCreate(savedInstanceState);
+        Locale.setDefault(locale);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
+            askPermission();
+        }
         setContentView(R.layout.activity_main);
         myList = findViewById(R.id.list);
         title = findViewById(R.id.title);
@@ -94,9 +100,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
         //Locations utils
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
- //Routes list overview
-
-
+        //Routes list overview
 
         myList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -116,7 +120,17 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
                 Log.e(TAG," A POTATO "+ firstEtape.getText());
                 curRoute = position +1;
                 Log.i(TAG, "This" + curRoute);
-                startActivity(in);
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                    startService(new Intent(MainActivity.this, FloatingOverMapIconService.class));
+                    finish();
+                } else if (Settings.canDrawOverlays(getApplicationContext())) {
+                    startService(new Intent(MainActivity.this, FloatingOverMapIconService.class));
+                    finish();
+                } else {
+                    askPermission();
+                    Toast.makeText(getApplicationContext(), "You need System Alert Window Permission to do this", Toast.LENGTH_SHORT).show();
+                }
+                //startActivity(in);
 
             }
         });
@@ -132,6 +146,11 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
 
         }
 
+    }
+    private void askPermission() {
+        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:" + getPackageName()));
+        startActivityForResult(intent, SYSTEM_ALERT_WINDOW_PERMISSION);
     }
 public void text()
 {
@@ -192,6 +211,7 @@ public void text()
             ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             voice = matches.get(0);
             voice.replaceAll("","+");
+            voice.replaceAll("-","+");
             Log.i(TAG, "You said " + voice);
             new GetContacts().execute();
         }
@@ -202,11 +222,7 @@ public void text()
         public int baldiacao[];
         public String stopsNum;
         private String dist;
-        String onibuses[];
-        String coloroses[];
-        String tiposes[];
-        String locazoes[];
-        String nomeoses[];
+
 
 
         @Override
@@ -248,6 +264,7 @@ public void text()
                         //The route
 
                         String gole = String.valueOf(i +1);
+                        Log.i(TAG, "Lets confirm... Route number: " + gole);
                         //Route info
                         JSONObject phone = c.getJSONObject("fare");
                         String currency = phone.getString("currency");
@@ -262,55 +279,30 @@ public void text()
                             int num = 0;
                             int nm = 0;
                             JSONObject d = legs.getJSONObject(o);
-                            JSONObject eLocation = d.getJSONObject("end_location");
-                            double latitude = eLocation.getDouble("lat");
-                            double longitude = eLocation.getDouble("lng");
-                            Geocoder geocoder;
-                            List<Address> addresses;
-                            geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
-                            addresses = geocoder.getFromLocation(latitude, longitude, 2);
-                            try {
-                                if (o == 0 && i == 0) {
-                                    Log.i(TAG, "Info is " + latitude +"," + longitude);
-                                    info = addresses.get(1).getFeatureName();
-                                    Log.i(TAG, "Info is " + info);
-                                } else {
-                                    throw new Exception("humm");
-                                }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                            }
-
                             JSONObject arrival = d.getJSONObject("arrival_time");
                             String arrivalT = arrival.getString("text");
-                            //Info
                             JSONObject departure = d.getJSONObject("departure_time");
                                 String departureT = departure.getString("text");
                             JSONObject distance = d.getJSONObject("distance");
                                 dist = distance.getString("text");
                             JSONObject duration = d.getJSONObject("duration");
                                 String durationT = duration.getString("text");
-
                             JSONArray steps = d.getJSONArray("steps");
 
-                            contact.put("totalTime", "Leave at "+ departureT + " and arrive at " + arrivalT);
-                            contact.put("distance", "You'll travel " + dist);
-                            contact.put("duration", "Arrive after " + durationT);
-                            contact.put("price", "Total price: " + text);
-                            contact.put("val", "Route number: " + gole);
                             //Looping througt the steps
                             for (int e = 0; e< steps.length(); e++) {
                                 JSONObject a = steps.getJSONObject(e);
                                     String mode = a.getString("travel_mode");
                                 Log.i(TAG, "The mode is " + mode +" for route no "+ i + " at leg " + o +", and at steps " + e );
-
                                 try{
-
                                     if(mode.equals("TRANSIT")) {
                                         num++;
-
+                                        contact.put("totalTime", "Leave at "+ departureT + " and arrive at " + arrivalT);
+                                        contact.put("distance", "You'll travel " + dist);
+                                        contact.put("duration", "Arrive after " + durationT);
+                                        contact.put("price", "Total price: " + text);
+                                        contact.put("val", "Route number: " + gole);
                                         Log.i(TAG, "We have now " + num + " transit jumps in route no " + i + "at leg " + o);
-
                                         for (nm = (num-1); nm < num; nm++) {
 
                                             JSONObject details = a.getJSONObject("transit_details");
@@ -331,26 +323,25 @@ public void text()
                                                             String color = line.getString("color");
                                                             String busName = vehicle.getString("name");
                                                 stopsNum = details.getString("num_stops");
-                                            contact.put("depStopLocation" + nm, depStopLocation);
+                                           contact.put("depStopLocation" + nm, depStopLocation);
                                            contact.put("busNumber" + nm, busNumber +" ");
                                            contact.put("busName" + nm, busName);
                                            contact.put("color" + nm, color);
                                            contact.put("numStops" + nm, stopsNum);
-                                           contactList.add(contact);
+
                                             Log.e(TAG, "Number of bus stops is " + stopsNum);
-                                            //Log.i(TAG,"Wow " + contact.get("depStopLocation1"));
                                             Log.wtf(TAG, "We have added " + nm +" bus jumps, that's right.");
-                                            // adding contact to contact list
                                             Log.i(TAG, "The starting bus Stop for step " + e + " is at " + depStopLocation);
                                             Log.i(TAG, "The ending bus Stop for step " + e + " is at " + arStopLocation);
                                              }
                                         Log.i(TAG,"For loop finished." );
+
                                     }
                                     else{
                                         throw  new Exception("walking is not what we want right now");
                                     }
-
                                     // adding contact to contact list
+                                    contactList.add(contact);
                                     baldiacao[i] = num;
                                     Log.e(TAG, "Nice, now we have the number of changes as " + num);
                                 }
@@ -383,8 +374,6 @@ public void text()
                         }
                     });
 
-                } catch (IOException e) {
-                    e.printStackTrace();
                 }
             } else {
                 Log.e(TAG, "Couldn't get json from server.");
@@ -424,8 +413,6 @@ public void makeStuff(){
                     "price","distance","busNumber0","busNumber1","busNumber2","val","stopsNum0", "depStopLocation0","depStopLocation1","depStopLocation2" }, new int[]{R.id.totalTime,
                     R.id.duration, R.id.price, R.id.distance, R.id.busNumber0, R.id.busNumber1, R.id.busNumber2, R.id.route, R.id.stops, R.id.stopLocation0,R.id.stopLocation1,R.id.stopLocation2});
             myList.setAdapter(adapter);
-            Log.i(TAG, "Info is "+info);
-            title.setText(info);
 
     }
 }

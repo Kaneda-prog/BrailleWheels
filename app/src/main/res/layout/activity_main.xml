@@ -26,7 +26,7 @@
         android:layout_height="wrap_content"
         android:fontFamily="serif-monospace"
         android:textAlignment="center"
-        android:textAppearance="@style/TextAppearance.AppCompat.Display1"
+        android:textAppearance="@style/TextAppearance.AppCompat.Body1"
         android:textColor="@color/colorPrimary"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
@@ -36,9 +36,11 @@
     <RelativeLayout
         android:id="@+id/relativeLayout5"
         android:layout_width="416dp"
-        android:layout_height="411dp"
+        android:layout_height="475dp"
         app:layout_constraintBottom_toTopOf="@+id/speak"
-        tools:context="info.androidhive.jsonparsing.MainActivity">
+        app:layout_constraintTop_toBottomOf="@+id/title"
+        tools:context="info.androidhive.jsonparsing.MainActivity"
+        tools:layout_editor_absoluteX="-7dp">
 
         <ListView
             android:id="@+id/list"

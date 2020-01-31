@@ -37,7 +37,7 @@ public class FloatingOverMapIconService extends Service implements  View.OnClick
                 WindowManager.LayoutParams.WRAP_CONTENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.O ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
                 PixelFormat.TRANSLUCENT);
 
 
@@ -64,27 +64,20 @@ public class FloatingOverMapIconService extends Service implements  View.OnClick
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        initialX = params.x;
-                        initialY = params.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-                        return true;
-
-                    case MotionEvent.ACTION_UP:
+                /*switch (event.getAction()) {
+                    case MotionEvent.ACTION_BUTTON_PRESS:
                         //when the drag is ended switching the state of the widget
                         collapsedView.setVisibility(View.GONE);
                         expandedView.setVisibility(View.VISIBLE);
                         return true;
 
-                    /*case MotionEvent.ACTION_MOVE:
+                   case MotionEvent.ACTION_MOVE:
                         //this code is helping the widget to move around the screen with fingers
                         params.x = initialX + (int) (event.getRawX() - initialTouchX);
                         params.y = initialY + (int) (event.getRawY() - initialTouchY);
                         mWindowManager.updateViewLayout(mFloatingView, params);
-                        return true;*/
-                }
+                        return true;
+                }*/
                 return false;
             }
         });

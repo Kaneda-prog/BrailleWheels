@@ -7,7 +7,9 @@ import android.content.Intent;
 import android.location.Location;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.ListAdapter;
 import android.widget.SimpleAdapter;
@@ -45,8 +47,10 @@ public class RouteInfo extends FragmentActivity implements OnMapReadyCallback {
        // Location dest = LatLng(route);
 
 
+
+
         route = getIntent().getStringExtra("firstStop");
-        Log.i(TAG, "Here ate RouteInfo, we've got the current information abou the stop: it its at "+route);
+        Log.i(TAG, "Here ate RouteInfo, we've got the current information about the stop: it its at "+route);
         Uri gmmIntentUri = Uri.parse("google.navigation:q="+route+"&mode=w");
         text.setText("You are traveling at " + route);
         //Toast.makeText(getApplicationContext(), name, Toast.LENGTH_SHORT).show();
@@ -59,7 +63,6 @@ public class RouteInfo extends FragmentActivity implements OnMapReadyCallback {
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
     }
-
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
