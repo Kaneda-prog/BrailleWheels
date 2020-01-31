@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
@@ -21,7 +22,7 @@
 
             <ImageView
                 android:id="@+id/collapsed_iv"
-                android:layout_width="200dp"
+                android:layout_width="70dp"
                 android:layout_height="70dp"
                 android:layout_marginTop="8dp"
                 android:src="@drawable/stop" />
@@ -46,9 +47,10 @@
 
             <ImageView
                 android:id="@+id/buttonSimplifiedCodingExpanded"
-                android:layout_width="80dp"
-                android:layout_height="80dp"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
                 android:src="@drawable/bus"
+                app:srcCompat="@drawable/bus"
                 tools:ignore="ContentDescription" />
 
             <LinearLayout
@@ -58,11 +60,12 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/Hum"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:paddingLeft="15dp"
-                    android:paddingRight="15dp"
                     android:paddingTop="15dp"
+                    android:paddingRight="15dp"
                     android:text="Simplified Coding"
                     android:textAlignment="center"
                     android:textAppearance="@style/Base.TextAppearance.AppCompat.Large"

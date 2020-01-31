@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
     public WebView view;
     PlacesClient placesClient;
 
-    public String BUS_NUMBER;
+    public static String BUS_NUMBER;
     public String BUS_STOP;
     private static final int REQUEST_CODE = 10;
     public static final int VOICE_RECOGNIZITION_REQUESTCODE = 1234;
@@ -108,6 +108,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
                 Intent in = new Intent(getApplicationContext(), RouteInfo.class);
                 TextView firstEtape = view.findViewById(R.id.stopLocation0);
                 in.putExtra("firstStop",firstEtape.getText());
+                BUS_NUMBER = firstEtape.toString();
                 if(view.findViewById(R.id.stopLocation1) != null)
                 {
                     TextView secondEtape = view.findViewById(R.id.stopLocation1);
@@ -124,13 +125,15 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
                     startService(new Intent(MainActivity.this, FloatingOverMapIconService.class));
                     finish();
                 } else if (Settings.canDrawOverlays(getApplicationContext())) {
+
                     startService(new Intent(MainActivity.this, FloatingOverMapIconService.class));
+
                     finish();
                 } else {
                     askPermission();
                     Toast.makeText(getApplicationContext(), "You need System Alert Window Permission to do this", Toast.LENGTH_SHORT).show();
                 }
-                //startActivity(in);
+                startActivity(in);
 
             }
         });
@@ -148,9 +151,10 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
 
     }
     private void askPermission() {
-        Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:" + getPackageName()));
-        startActivityForResult(intent, SYSTEM_ALERT_WINDOW_PERMISSION);
+        if (!Settings.canDrawOverlays(getApplicationContext())) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION ,Uri.parse("package:" + getPackageName()));
+            startActivityForResult(intent, 0);
+        }
     }
 public void text()
 {

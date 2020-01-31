@@ -51,14 +51,14 @@ public class RouteInfo extends FragmentActivity implements OnMapReadyCallback {
 
         route = getIntent().getStringExtra("firstStop");
         Log.i(TAG, "Here ate RouteInfo, we've got the current information about the stop: it its at "+route);
-        Uri gmmIntentUri = Uri.parse("google.navigation:q="+route+"&mode=w");
+        //Uri gmmIntentUri = Uri.parse("google.navigation:q="+route+"&mode=w");
         text.setText("You are traveling at " + route);
         //Toast.makeText(getApplicationContext(), name, Toast.LENGTH_SHORT).show();
         //Toast.makeText(this, route, Toast.LENGTH_SHORT).show();
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
-              mapIntent.setPackage("com.google.android.apps.maps");
-              startActivity(mapIntent);
+        //Intent mapIntent = new Intent(Intent.ACTION_VIEW, gmmIntentUri);
+             // mapIntent.setPackage("com.google.android.apps.maps");
+              //startActivity(mapIntent);
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
