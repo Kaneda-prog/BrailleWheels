@@ -7,6 +7,8 @@ import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -24,28 +26,41 @@ import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 import android.widget.Switch;
+import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.net.FetchPlaceRequest;
+import com.google.android.libraries.places.api.net.PlacesClient;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 
 
 public class MainActivity extends AppCompatActivity implements OnClickListener {
     private String TAG = MainActivity.class.getSimpleName();
+    public String voice;
+    public String latLng;
+    public String info;
+    public TextView title;
     public ListView myList;
     public Button myButton;
     public Switch cool;
     public WebView view;
+    PlacesClient placesClient;
 
     public String BUS_NUMBER;
     public String BUS_STOP;
@@ -60,47 +75,52 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
 
     static public JSONArray json_object;
     boolean enjoy = false;
-    String url = "https://maps.googleapis.com/maps/api/directions/json?origin=Liceu+Franco+Brasileiro&destination=Maracana%2CRio+de+Janeiro&mode=transit&alternatives=true&transit_mode=bus&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag";
+    //-22.9596397,-43.2011472
     JSONObject leObject;
     ArrayList<HashMap<String, String>> contactList;
-
+    Locale locale = new Locale("pt", "BR");
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Locale.setDefault(locale);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         myList = findViewById(R.id.list);
-
+        title = findViewById(R.id.title);
+        //Set button
+        myButton = findViewById(R.id.speak);
+        myButton.setOnClickListener(this);
+        //view = findViewById(R.id.web);
         contactList = new ArrayList<>();
+        //Locations utils
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
-        //view = findViewById(R.id.web);
-new GetContacts().execute();
+ //Routes list overview
+
+
+
         myList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent in = new Intent(getApplicationContext(), RouteInfo.class);
-
+                TextView firstEtape = view.findViewById(R.id.stopLocation0);
+                in.putExtra("firstStop",firstEtape.getText());
+                if(view.findViewById(R.id.stopLocation1) != null)
+                {
+                    TextView secondEtape = view.findViewById(R.id.stopLocation1);
+                    in.putExtra("sncStop",secondEtape.getText());
+                    if(view.findViewById(R.id.stopLocation1) != null) {
+                        TextView thirdEtape = view.findViewById(R.id.stopLocation2);
+                        in.putExtra("thdStop",thirdEtape.getText());
+                    }
+                }
+                Log.e(TAG," A POTATO "+ firstEtape.getText());
                 curRoute = position +1;
-                in.putExtra("route",curRoute);
                 Log.i(TAG, "This" + curRoute);
                 startActivity(in);
 
             }
         });
-        if (currentLocation != null && view!=null) {
 
-            WebSettings webSettings = view.getSettings();
-            view.getSettings().setJavaScriptEnabled(true);
-            view.addJavascriptInterface(new WebAppInterface(this), "Android");
-            view.setWebViewClient(new WebViewClient());
-            //https://www.google.com/maps/dir/?api=1&origin=default&destination=Maracana%2CRio+de+Janeiro&travelmode=transit
-            view.loadUrl("file:///android_asset/www/app.js");
-            Toast.makeText(this, currentLocation.getLatitude() + ".", Toast.LENGTH_SHORT).show();
-        }
-        cool = findViewById(R.id.switch1);
-        cool.setOnClickListener(this);
-        myButton = findViewById(R.id.speak);
-        myButton.setOnClickListener(this);
         voiceinputbuttons();
         PackageManager pm = getPackageManager();
         List activities = pm.queryIntentActivities(new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH), 0);
@@ -144,16 +164,10 @@ public void text()
     }
 
     public void onClick(View v) {
+        latLng = currentLocation.getLatitude() +"," +currentLocation.getLongitude();
         if (v == myButton) {
-            if (enjoy) {
                 startVoiceRecognizitionActivity();
-            } else {
-                Intent intent = new Intent(this, MapsActivity.class);
-                startActivity(intent);
-            }
         }
-        if (v == cool)
-            enjoy = !enjoy;
     }
 
     public void voiceinputbuttons() {
@@ -166,7 +180,8 @@ public void text()
 
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Say start!");
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().getLanguage());
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "say where you want to go NOW");
         startActivityForResult(intent, VOICE_RECOGNIZITION_REQUESTCODE);
     }
 
@@ -175,13 +190,10 @@ public void text()
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == VOICE_RECOGNIZITION_REQUESTCODE && resultCode == RESULT_OK) {
             ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-            myList.setAdapter((new ArrayAdapter(this, android.R.layout.simple_list_item_1, matches)));
-            if (matches.contains("start")) {
-                Intent intent = new Intent(this, MapsActivity.class);
-                startActivity(intent);
-
-
-            }
+            voice = matches.get(0);
+            voice.replaceAll("","+");
+            Log.i(TAG, "You said " + voice);
+            new GetContacts().execute();
         }
     }
 
@@ -195,11 +207,7 @@ public void text()
         String tiposes[];
         String locazoes[];
         String nomeoses[];
-        private String color;
-        private String stopLocation;
-        private String busNumber;
-        private String busName;
-        private String type;
+
 
         @Override
         protected void onPreExecute() {
@@ -217,7 +225,8 @@ public void text()
             Https sh = new Https();
 
             // Making a request to url and getting response
-            String jsonStr = sh.makeServiceCall(url);
+            String jsonStr = sh.makeServiceCall("https://maps.googleapis.com/maps/api/directions/json?origin="+latLng+"&destination="+voice+"%2CRio+de+Janeiro&mode=transit&alternatives=true&transit_mode=bus&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag");
+
 
             Log.d(TAG, "Response from url: " + jsonStr);
 
@@ -225,79 +234,115 @@ public void text()
                 try {
                     JSONObject jsonObj = new JSONObject(jsonStr);
                     // Getting JSON Array node
+                    JSONArray points = jsonObj.getJSONArray("geocoded_waypoints");
+                    JSONObject destination = points.getJSONObject(1);
+
                     JSONArray routes = jsonObj.getJSONArray("routes");
                     json_object = routes;
-
                     // looping through All Routes
                     for (int i = 0; i < routes.length(); i++) {
-
+                       HashMap<String, String> contact = new HashMap<>();
                         Log.i(TAG, "This is route no " +i);
                         baldiacao = new int[routes.length()];
                         JSONObject c = routes.getJSONObject(i);
+                        //The route
 
                         String gole = String.valueOf(i +1);
-
-                        // Phone node is JSON Object
+                        //Route info
                         JSONObject phone = c.getJSONObject("fare");
                         String currency = phone.getString("currency");
                         String text = phone.getString("text");
                         String value = phone.getString("value");
+
 
                         //Looping through all Legs in all routes
                         JSONArray legs = c.getJSONArray("legs");
                         for (int o = 0; o < legs.length(); o++) {
                             Log.i(TAG, "This is leg no " +o);
                             int num = 0;
+                            int nm = 0;
                             JSONObject d = legs.getJSONObject(o);
+                            JSONObject eLocation = d.getJSONObject("end_location");
+                            double latitude = eLocation.getDouble("lat");
+                            double longitude = eLocation.getDouble("lng");
+                            Geocoder geocoder;
+                            List<Address> addresses;
+                            geocoder = new Geocoder(getApplicationContext(), Locale.getDefault());
+                            addresses = geocoder.getFromLocation(latitude, longitude, 2);
+                            try {
+                                if (o == 0 && i == 0) {
+                                    Log.i(TAG, "Info is " + latitude +"," + longitude);
+                                    info = addresses.get(1).getFeatureName();
+                                    Log.i(TAG, "Info is " + info);
+                                } else {
+                                    throw new Exception("humm");
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
 
                             JSONObject arrival = d.getJSONObject("arrival_time");
                             String arrivalT = arrival.getString("text");
                             //Info
                             JSONObject departure = d.getJSONObject("departure_time");
-                            String departureT = departure.getString("text");
+                                String departureT = departure.getString("text");
                             JSONObject distance = d.getJSONObject("distance");
-                            dist = distance.getString("text");
+                                dist = distance.getString("text");
                             JSONObject duration = d.getJSONObject("duration");
-                            String durationT = duration.getString("text");
-                            HashMap<String, String> contact = new HashMap<>();
+                                String durationT = duration.getString("text");
+
                             JSONArray steps = d.getJSONArray("steps");
+
+                            contact.put("totalTime", "Leave at "+ departureT + " and arrive at " + arrivalT);
+                            contact.put("distance", "You'll travel " + dist);
+                            contact.put("duration", "Arrive after " + durationT);
+                            contact.put("price", "Total price: " + text);
+                            contact.put("val", "Route number: " + gole);
+                            //Looping througt the steps
                             for (int e = 0; e< steps.length(); e++) {
                                 JSONObject a = steps.getJSONObject(e);
-                                String mode = a.getString("travel_mode");
+                                    String mode = a.getString("travel_mode");
                                 Log.i(TAG, "The mode is " + mode +" for route no "+ i + " at leg " + o +", and at steps " + e );
 
                                 try{
-                                    if(mode.equals("TRANSIT")) {
-                                        Log.i(TAG, "The best mode here at leg " + o + " and step " + e + " is  clearly transit, wich is " + mode);
-                                        num++;
-                                        Log.i(TAG, "We have now " + num + " transit jumps in route no " + i + "at leg " + o);
-                                        for (int nm = 0; nm < num; nm++) {
-                                            JSONObject details = a.getJSONObject("transit_details");
-                                            JSONObject aStop = details.getJSONObject("arrival_stop");
-                                            JSONObject aLocation = aStop.getJSONObject("location");
-                                            String lat = aLocation.getString("lat");
-                                            String lng = aLocation.getString("lng");
-                                            stopLocation = lat + ", " + lng;
-                                            JSONObject line = details.getJSONObject("line");
-                                            busNumber = line.getString("short_name");
-                                            JSONObject vehicle = line.getJSONObject("vehicle");
-                                            type = vehicle.getString("type");
-                                             color = line.getString("color");
-                                            busName = vehicle.getString("name");
-                                            stopsNum = details.getString("num_stops");
-                                            Log.e(TAG, "Hello" + stopsNum);
-                                            Log.println(Log.VERBOSE, TAG, "help" + stopsNum);
 
-                                           contact.put("stopLocation" + nm, stopLocation);
-                                           contact.put("busNumber" + nm, busNumber);
+                                    if(mode.equals("TRANSIT")) {
+                                        num++;
+
+                                        Log.i(TAG, "We have now " + num + " transit jumps in route no " + i + "at leg " + o);
+
+                                        for (nm = (num-1); nm < num; nm++) {
+
+                                            JSONObject details = a.getJSONObject("transit_details");
+                                                JSONObject departure_stop = details.getJSONObject("departure_stop");
+                                                    JSONObject aLocation = departure_stop.getJSONObject("location");
+                                                        String lat = aLocation.getString("lat");
+                                                        String lng = aLocation.getString("lng");
+                                                        String depStopLocation = lat + "," + lng;
+                                                JSONObject arrival_stop = details.getJSONObject("arrival_stop");
+                                                    JSONObject arLocation = arrival_stop.getJSONObject("location");
+                                                        String lati = arLocation.getString("lat");
+                                                        String lngo = arLocation.getString("lng");
+                                                        String arStopLocation = lati + "," + lngo;
+                                                JSONObject line = details.getJSONObject("line");
+                                                    String busNumber = line.getString("short_name");
+                                                        JSONObject vehicle = line.getJSONObject("vehicle");
+                                                            String type = vehicle.getString("type");
+                                                            String color = line.getString("color");
+                                                            String busName = vehicle.getString("name");
+                                                stopsNum = details.getString("num_stops");
+                                            contact.put("depStopLocation" + nm, depStopLocation);
+                                           contact.put("busNumber" + nm, busNumber +" ");
                                            contact.put("busName" + nm, busName);
                                            contact.put("color" + nm, color);
-                                           contact.put("numStops", stopsNum);
-
-                                            Log.wtf(TAG, "We have added " + nm + 1 +" bus jumps, that's right.");
+                                           contact.put("numStops" + nm, stopsNum);
+                                           contactList.add(contact);
+                                            Log.e(TAG, "Number of bus stops is " + stopsNum);
+                                            //Log.i(TAG,"Wow " + contact.get("depStopLocation1"));
+                                            Log.wtf(TAG, "We have added " + nm +" bus jumps, that's right.");
                                             // adding contact to contact list
-                                            contactList.add(contact);
-                                            Log.i(TAG, "The bus Stop for step " + e + " is at " + stopLocation);
+                                            Log.i(TAG, "The starting bus Stop for step " + e + " is at " + depStopLocation);
+                                            Log.i(TAG, "The ending bus Stop for step " + e + " is at " + arStopLocation);
                                              }
                                         Log.i(TAG,"For loop finished." );
                                     }
@@ -305,35 +350,27 @@ public void text()
                                         throw  new Exception("walking is not what we want right now");
                                     }
 
+                                    // adding contact to contact list
                                     baldiacao[i] = num;
                                     Log.e(TAG, "Nice, now we have the number of changes as " + num);
                                 }
                                 catch (Exception e1) {
                                     Log.e(TAG, "Hey!" + e1 + " >:(");
-
                                 }
 
                         }
+                            // adding each child node to HashMap key => value
+
 
                           /**
                                     Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>smashicons" title="Smashicons">Smashicons</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
                                     Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>photo3idea-studio" title="photo3idea_studio">photo3idea_studio</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
                                    **/
-                            // adding each child node to HashMap key => value
-                            contact.put("totalTime", departureT + " > " + arrivalT);
-                            contact.put("distance", dist);
-                            contact.put("duration", durationT);
-                            contact.put("price", text);
-                            contact.put("val", gole);
+
                             // adding contact to contact list
-                            contactList.add(contact);
 
                         }
-
-
                     }
-
-
                 } catch (final JSONException e) {
                     Log.e(TAG, "Json parsing error: " + e.getMessage());
                     runOnUiThread(new Runnable() {
@@ -346,6 +383,8 @@ public void text()
                         }
                     });
 
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
             } else {
                 Log.e(TAG, "Couldn't get json from server.");
@@ -382,10 +421,11 @@ public void makeStuff(){
             ListAdapter adapter = new SimpleAdapter(
                     MainActivity.this, contactList,
                     R.layout.list_item, new String[]{"totalTime","duration",
-                    "price","distance","busNumber0","val","stopsNum"}, new int[]{R.id.totalTime,
-                    R.id.duration, R.id.price, R.id.distance, R.id.busNumber0, R.id.route, R.id.stops});
+                    "price","distance","busNumber0","busNumber1","busNumber2","val","stopsNum0", "depStopLocation0","depStopLocation1","depStopLocation2" }, new int[]{R.id.totalTime,
+                    R.id.duration, R.id.price, R.id.distance, R.id.busNumber0, R.id.busNumber1, R.id.busNumber2, R.id.route, R.id.stops, R.id.stopLocation0,R.id.stopLocation1,R.id.stopLocation2});
             myList.setAdapter(adapter);
-
+            Log.i(TAG, "Info is "+info);
+            title.setText(info);
 
     }
 }
