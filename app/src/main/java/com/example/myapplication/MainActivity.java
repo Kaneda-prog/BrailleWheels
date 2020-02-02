@@ -14,6 +14,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
+
 import android.provider.Settings;
 import android.speech.RecognizerIntent;
 import android.util.Log;
@@ -105,7 +106,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
         myList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent in = new Intent(getApplicationContext(), RouteInfo.class);
+                Intent in = new Intent(getApplicationContext(), CompassActivity.class);
                 TextView firstEtape = view.findViewById(R.id.stopLocation0);
                 in.putExtra("firstStop",firstEtape.getText());
                 BUS_NUMBER = firstEtape.toString();
