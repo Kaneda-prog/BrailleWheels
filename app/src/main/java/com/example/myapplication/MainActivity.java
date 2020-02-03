@@ -72,7 +72,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
     public static final int VOICE_RECOGNIZITION_REQUESTCODE = 1234;
     public static int curRoute;
 
-    static Location currentLocation;
+    public static Location currentLocation;
     FusedLocationProviderClient fusedLocationProviderClient;
 
     ProgressDialog pd;
@@ -121,20 +121,21 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
                 }
                 Log.e(TAG," A POTATO "+ firstEtape.getText());
                 curRoute = position +1;
-                Log.i(TAG, "This" + curRoute);
+                Log.i(TAG, "This " + curRoute);
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
                     startService(new Intent(MainActivity.this, FloatingOverMapIconService.class));
                     finish();
+                    startActivity(in);
                 } else if (Settings.canDrawOverlays(getApplicationContext())) {
-
                     startService(new Intent(MainActivity.this, FloatingOverMapIconService.class));
-
                     finish();
+                    startActivity(in);
                 } else {
                     askPermission();
                     Toast.makeText(getApplicationContext(), "You need System Alert Window Permission to do this", Toast.LENGTH_SHORT).show();
+                    startActivity(in);
                 }
-                startActivity(in);
+
 
             }
         });
@@ -173,14 +174,6 @@ public void text()
             public void onSuccess(Location location) {
                 if (location != null) {
                     currentLocation = location;
-                    /*WebSettings webSettings = view.getSettings();
-                    view.getSettings().setJavaScriptEnabled(true);
-                    view.setWebViewClient(new WebViewClient());
-                    view.addJavascriptInterface(new WebAppInterface(MainActivity.this), "Android");
-                    //https://www.google.com/maps/dir/?api=1&origin=default&destination=Maracana%2CRio+de+Janeiro&travelmode=transit
-                    //view.loadUrl("file:///android_asset/www/app.js");
-                    //view.loadUrl("https://maps.googleapis.com/maps/api/directions/json?origin=Liceu+Franco+Brasileiro&destination=Maracana%2CRio+de+Janeiro&mode=transit&alternatives=true&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag");
-                    */
                 }
             }
 
@@ -191,6 +184,8 @@ public void text()
         latLng = currentLocation.getLatitude() +"," +currentLocation.getLongitude();
         if (v == myButton) {
                 startVoiceRecognizitionActivity();
+voice = "Maracana";
+            new GetContacts().execute();
         }
     }
 
@@ -200,8 +195,6 @@ public void text()
     }
 
     public void startVoiceRecognizitionActivity() {
-
-
         Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().getLanguage());
@@ -294,7 +287,7 @@ public void text()
                                 String durationT = duration.getString("text");
                             JSONArray steps = d.getJSONArray("steps");
 
-                            //Looping througt the steps
+                            //Looping through the steps
                             for (int e = 0; e< steps.length(); e++) {
                                 JSONObject a = steps.getJSONObject(e);
                                     String mode = a.getString("travel_mode");
@@ -333,7 +326,9 @@ public void text()
                                            contact.put("busName" + nm, busName);
                                            contact.put("color" + nm, color);
                                            contact.put("numStops" + nm, stopsNum);
+                                            if(nm > 0) {
 
+                                            }
                                             Log.e(TAG, "Number of bus stops is " + stopsNum);
                                             Log.wtf(TAG, "We have added " + nm +" bus jumps, that's right.");
                                             Log.i(TAG, "The starting bus Stop for step " + e + " is at " + depStopLocation);
@@ -346,7 +341,15 @@ public void text()
                                         throw  new Exception("walking is not what we want right now");
                                     }
                                     // adding contact to contact list
-                                    contactList.add(contact);
+                                    if(steps.length() > 1) {
+                                        Log.i(TAG, "LOOKA!");
+                                        if(e == (steps.length()-1))
+                                        contactList.add(contact);
+                                    }
+                                    else {
+                                        Log.i(TAG, "looka!");
+                                        contactList.add(contact);
+                                    }
                                     baldiacao[i] = num;
                                     Log.e(TAG, "Nice, now we have the number of changes as " + num);
                                 }

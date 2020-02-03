@@ -22,8 +22,8 @@
 
             <ImageView
                 android:id="@+id/collapsed_iv"
-                android:layout_width="70dp"
-                android:layout_height="70dp"
+                android:layout_width="400dp"
+                android:layout_height="400dp"
                 android:layout_marginTop="8dp"
                 android:src="@drawable/stop" />
 
@@ -36,52 +36,5 @@
         </RelativeLayout>
 
         <!-- this is the expanded layout -->
-        <LinearLayout
-            android:id="@+id/layoutExpanded"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="#a0c3d7"
-            android:orientation="horizontal"
-            android:padding="8dp"
-            android:visibility="gone">
-
-            <ImageView
-                android:id="@+id/buttonSimplifiedCodingExpanded"
-                android:layout_width="100dp"
-                android:layout_height="100dp"
-                android:src="@drawable/bus"
-                app:srcCompat="@drawable/bus"
-                tools:ignore="ContentDescription" />
-
-            <LinearLayout
-                android:id="@+id/buttonSimplifiedCoding"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <TextView
-                    android:id="@+id/Hum"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:paddingLeft="15dp"
-                    android:paddingTop="15dp"
-                    android:paddingRight="15dp"
-                    android:text="Simplified Coding"
-                    android:textAlignment="center"
-                    android:textAppearance="@style/Base.TextAppearance.AppCompat.Large"
-                    android:textColor="#ffffff"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="www.simplifiedcoding.net"
-                    android:textAlignment="center"
-                    android:textAppearance="@style/Base.TextAppearance.AppCompat.Medium"
-                    android:textColor="#ffffff"
-                    android:textStyle="bold" />
-            </LinearLayout>
-
-        </LinearLayout>
     </RelativeLayout>
 </FrameLayout>

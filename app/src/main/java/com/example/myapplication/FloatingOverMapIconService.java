@@ -13,7 +13,7 @@ import android.widget.TextView;
 
 import static com.example.myapplication.MainActivity.BUS_NUMBER;
 
-public class FloatingOverMapIconService extends Service implements  View.OnClickListener{
+public class FloatingOverMapIconService extends Service{
     private WindowManager mWindowManager;
     private View mFloatingView;
     private View collapsedView;
@@ -53,26 +53,15 @@ public class FloatingOverMapIconService extends Service implements  View.OnClick
 
         //getting the collapsed and expanded view from the floating view
         collapsedView = mFloatingView.findViewById(R.id.layoutCollapsed);
-        expandedView = mFloatingView.findViewById(R.id.layoutExpanded);
         //adding click listener to close button and expanded view
-        mFloatingView.findViewById(R.id.buttonClose).setOnClickListener(this);
-        expandedView.setOnClickListener(this);
 
         //adding an touchlistener to make drag movement of the floating widget
         mFloatingView.findViewById(R.id.relativeLayoutParent).setOnTouchListener(new View.OnTouchListener() {
-            private int initialX;
-            private int initialY = params.y;
-            private float initialTouchX;
-            private float initialTouchY;
 
             @Override
             public boolean onTouch(View v, MotionEvent event) {
                 switch (event.getAction()) {
                     case MotionEvent.ACTION_DOWN:
-                        initialX = params.x;
-                        initialY = params.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
                         return true;
 
                     case MotionEvent.ACTION_UP:
@@ -97,21 +86,5 @@ public class FloatingOverMapIconService extends Service implements  View.OnClick
     public void onDestroy() {
         super.onDestroy();
         if (mFloatingView != null) mWindowManager.removeView(mFloatingView);
-    }
-
-    @Override
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.layoutExpanded:
-                //switching views
-                collapsedView.setVisibility(View.VISIBLE);
-                expandedView.setVisibility(View.GONE);
-                break;
-
-            case R.id.buttonClose:
-                //closing the widget
-                stopSelf();
-                break;
-        }
     }
 }

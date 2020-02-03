@@ -45,10 +45,6 @@ public class RouteInfo extends FragmentActivity implements OnMapReadyCallback {
         setContentView(R.layout.activity_route_info);
         text = findViewById(R.id.info);
        // Location dest = LatLng(route);
-
-
-
-
         route = getIntent().getStringExtra("firstStop");
         Log.i(TAG, "Here ate RouteInfo, we've got the current information about the stop: it its at "+route);
         //Uri gmmIntentUri = Uri.parse("google.navigation:q="+route+"&mode=w");

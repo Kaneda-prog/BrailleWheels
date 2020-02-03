@@ -49,10 +49,7 @@
             android:name=".MapsActivity"
             android:label="@string/title_activity_maps" />
 
-        <service
-            android:name=".FloatingOverMapIconService"
-            android:enabled="true"
-            android:exported="false" />
+
 
         <activity android:name=".MainActivity">
             <intent-filter>
@@ -61,6 +58,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service
+        android:name=".FloatingOverMapIconService"/>
     </application>
 
 </manifest>

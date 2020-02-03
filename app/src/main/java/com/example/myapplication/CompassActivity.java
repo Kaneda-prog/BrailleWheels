@@ -1,160 +1,175 @@
 package com.example.myapplication;
 
 
+import android.Manifest;
 import android.content.Context;
-import android.content.DialogInterface;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
-import android.os.Build;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
-import android.os.VibrationEffect;
 import android.os.Vibrator;
+import android.util.Log;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 
-public class CompassActivity extends AppCompatActivity implements SensorEventListener {
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.maps.model.LatLng;
 
-    ImageView compass_img;
-    TextView txt_compass;
-    int mAzimuth;
-    private SensorManager mSensorManager;
-    private Sensor mRotationV, mAccelerometer, mMagnetometer;
-    boolean haveSensor = false, haveSensor2 = false;
-    float[] rMat = new float[9];
-    float[] orientation = new float[3];
-    private float[] mLastAccelerometer = new float[3];
-    private float[] mLastMagnetometer = new float[3];
-    private boolean mLastAccelerometerSet = false;
-    private boolean mLastMagnetometerSet = false;
+
+public class CompassActivity extends AppCompatActivity {
+    static Location currentlocation;
+    FusedLocationProviderClient fusedLocationProviderClient;
+    private static final int REQUEST_CODE = 1011;
+    private static final String TAG = "CompassActivity";
+    Vibrator v;
+    private Compass compass;
+    private ImageView arrowView;
+    private TextView sotwLabel;  // SOTW is for "side of the world"
+    Button checkBus;
+    TextView dist;
+    boolean goCompass= false;
+    private float currentAzimuth;
+    private SOTW sotwFormatter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_compass);
-
-        Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-
-        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        compass_img = (ImageView) findViewById(R.id.img_compass);
-        txt_compass = (TextView) findViewById(R.id.txt_azimuth);
-
-        start();
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+        fetchLastLocation();
+        v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        sotwFormatter = new SOTW(this);
+        dist = findViewById(R.id.distance);
+        arrowView = findViewById(R.id.img_compass);
+        sotwLabel = findViewById(R.id.txt_azimuth);
+        setupCompass();
     }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
-            SensorManager.getRotationMatrixFromVector(rMat, event.values);
-            mAzimuth = (int) (Math.toDegrees(SensorManager.getOrientation(rMat, orientation)[0]) + 360) % 360;
+    private void fetchLastLocation() {
+        if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},REQUEST_CODE);
+            return;
         }
-
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            System.arraycopy(event.values, 0, mLastAccelerometer, 0, event.values.length);
-            mLastAccelerometerSet = true;
-        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-            System.arraycopy(event.values, 0, mLastMagnetometer, 0, event.values.length);
-            mLastMagnetometerSet = true;
-        }
-        if (mLastAccelerometerSet && mLastMagnetometerSet) {
-            SensorManager.getRotationMatrix(rMat, null, mLastAccelerometer, mLastMagnetometer);
-            SensorManager.getOrientation(rMat, orientation);
-            mAzimuth = (int) (Math.toDegrees(SensorManager.getOrientation(rMat, orientation)[0]) + 360) % 360;
-        }
-
-        mAzimuth = Math.round(mAzimuth);
-        compass_img.setRotation(-mAzimuth);
-
-        String where = "NW";
-
-        if (mAzimuth >= 350 || mAzimuth <= 10)
-            where = "N";
-        if (mAzimuth < 350 && mAzimuth > 280)
-            where = "NW";
-        if (mAzimuth <= 280 && mAzimuth > 260)
-            where = "W";
-        if (mAzimuth <= 260 && mAzimuth > 190)
-            where = "SW";
-        if (mAzimuth <= 190 && mAzimuth > 170)
-            where = "S";
-        if (mAzimuth <= 170 && mAzimuth > 100)
-            where = "SE";
-        if (mAzimuth <= 100 && mAzimuth > 80)
-            where = "E";
-        if (mAzimuth <= 80 && mAzimuth > 10)
-            where = "NE";
-
-
-        txt_compass.setText(mAzimuth + "° " + where);
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int i) {
-
-    }
-
-    public void start() {
-        if (mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) == null) {
-            if ((mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) || (mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) == null)) {
-                noSensorsAlert();
+        Task<Location> task = fusedLocationProviderClient.getLastLocation();
+        task.addOnSuccessListener(new OnSuccessListener<Location>() {
+            @Override
+            public void onSuccess(Location location) {
+                if(location!= null) {
+                    currentlocation = location;
+                    Intent intent = getIntent();
+                    String position = intent.getStringExtra("firstStop");
+                    String[] latlong =  position.split(",");
+                    double latitude = Double.parseDouble(latlong[0]);
+                    double longitude = Double.parseDouble(latlong[1]);
+                    LatLng latLng = new LatLng(latitude, longitude);
+                    Location temp = new Location(LocationManager.GPS_PROVIDER);
+                    temp.setLatitude(latitude);
+                    temp.setLongitude(longitude);
+                    Log.i(TAG, "LOOOOOK" + temp +"   " +  currentlocation);
+                    dist.setText("Distance to bus is " + currentlocation.distanceTo(temp) + " meters.");
+                }
             }
-            else {
-                mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-                mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-                haveSensor = mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_UI);
-                haveSensor2 = mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_UI);
-            }
-        }
-        else{
-            mRotationV = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-            haveSensor = mSensorManager.registerListener(this, mRotationV, SensorManager.SENSOR_DELAY_UI);
-        }
-        Vibrator v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-// Vibrate for 500 milliseconds
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            v.vibrate(VibrationEffect.createOneShot(500, VibrationEffect.DEFAULT_AMPLITUDE));
-        } else {
-            //deprecated in API 26
-            v.vibrate(500);
-        }
+
+        });
     }
 
-    public void noSensorsAlert(){
-        AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
-        alertDialog.setMessage("Your device doesn't support the Compass.")
-                .setCancelable(false)
-                .setNegativeButton("Close",new DialogInterface.OnClickListener() {
-                    public void onClick(DialogInterface dialog, int id) {
-                        finish();
-                    }
-                });
-        alertDialog.show();
-    }
+       @Override
+    protected void onStart() {
+        super.onStart();
 
-    public void stop() {
-        if (haveSensor) {
-            mSensorManager.unregisterListener(this, mRotationV);
-        }
-        else {
-            mSensorManager.unregisterListener(this, mAccelerometer);
-            mSensorManager.unregisterListener(this, mMagnetometer);
-        }
+            Log.d(TAG, "start compass");
+            compass.start();
     }
 
     @Override
     protected void onPause() {
-        super.onPause();
-        stop();
+            super.onPause();
+            compass.stop();
+
     }
 
     @Override
     protected void onResume() {
-        super.onResume();
-        start();
+
+            super.onResume();
+            compass.start();
+
     }
 
+    @Override
+    protected void onStop() {
+
+            super.onStop();
+            Log.d(TAG, "stop compass");
+            compass.stop();
+
+    }
+
+    private void setupCompass() {
+        compass = new Compass(this);
+        Compass.CompassListener cl = getCompassListener();
+        compass.setListener(cl);
+    }
+    private void shakeItBaby() {
+        long[] pattern = {0, 100, 50, 300};
+        v.vibrate(pattern, -1);
+    }
+    private void adjustArrow(float azimuth) {
+            Log.d(TAG, "will set rotation from " + currentAzimuth + " to "
+                    + azimuth);
+
+
+            Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
+                    Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
+                    0.5f);
+            currentAzimuth = azimuth;
+
+            an.setDuration(100);
+            an.setRepeatCount(0);
+            if (azimuth > -1 && azimuth < 1) {
+                shakeItBaby();
+            }
+            arrowView.startAnimation(an);
+
+    }
+
+    private void adjustSotwLabel(float azimuth) {
+        sotwLabel.setText(sotwFormatter.format(azimuth));
+    }
+    protected double bearing(double startLat, double startLng, double endLat, double endLng){
+        double longitude1 = startLng;
+        double longitude2 = endLng;
+        double latitude1 = Math.toRadians(startLat);
+        double latitude2 = Math.toRadians(endLat);
+        double longDiff= Math.toRadians(longitude2-longitude1);
+        double y= Math.sin(longDiff)*Math.cos(latitude2);
+        double x=Math.cos(latitude1)*Math.sin(latitude2)-Math.sin(latitude1)*Math.cos(latitude2)*Math.cos(longDiff);
+
+        return (Math.toDegrees(Math.atan2(y, x))+360)%360;
+    }
+    private Compass.CompassListener getCompassListener() {
+        return new Compass.CompassListener() {
+            @Override
+            public void onNewAzimuth(final float azimuth) {
+                // UI updates only in UI thread
+                // https://stackoverflow.com/q/11140285/444966
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        adjustArrow(azimuth);
+                        adjustSotwLabel(azimuth);
+                    }
+                });
+            }
+        };
+    }
 }
