@@ -184,7 +184,7 @@ public void text()
         latLng = currentLocation.getLatitude() +"," +currentLocation.getLongitude();
         if (v == myButton) {
                 startVoiceRecognizitionActivity();
-voice = "Maracana";
+//voice = "Maracana";
             new GetContacts().execute();
         }
     }
@@ -252,7 +252,6 @@ voice = "Maracana";
                     JSONObject destination = points.getJSONObject(1);
 
                     JSONArray routes = jsonObj.getJSONArray("routes");
-                    json_object = routes;
                     // looping through All Routes
                     for (int i = 0; i < routes.length(); i++) {
                        HashMap<String, String> contact = new HashMap<>();
@@ -414,6 +413,7 @@ public void makeStuff(){
             /**
               Updating parsed JSON data into ListView
              **/
+            Log.i(TAG, "ah" );
 
             ListAdapter adapter = new SimpleAdapter(
                     MainActivity.this, contactList,
@@ -421,7 +421,7 @@ public void makeStuff(){
                     "price","distance","busNumber0","busNumber1","busNumber2","val","stopsNum0", "depStopLocation0","depStopLocation1","depStopLocation2" }, new int[]{R.id.totalTime,
                     R.id.duration, R.id.price, R.id.distance, R.id.busNumber0, R.id.busNumber1, R.id.busNumber2, R.id.route, R.id.stops, R.id.stopLocation0,R.id.stopLocation1,R.id.stopLocation2});
             myList.setAdapter(adapter);
-
+            Log.i(TAG, "uh" );
     }
 }
 }

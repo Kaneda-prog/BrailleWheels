@@ -2,11 +2,13 @@ package com.example.myapplication;
 
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Vibrator;
 import android.util.Log;
@@ -14,7 +16,10 @@ import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ListAdapter;
+import android.widget.SimpleAdapter;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -24,6 +29,12 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.maps.model.LatLng;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.HashMap;
 
 
 public class CompassActivity extends AppCompatActivity {
@@ -37,9 +48,11 @@ public class CompassActivity extends AppCompatActivity {
     private TextView sotwLabel;  // SOTW is for "side of the world"
     Button checkBus;
     TextView dist;
+    String busNumber = "895.0";
     boolean goCompass= false;
     private float currentAzimuth;
     private SOTW sotwFormatter;
+    private ProgressDialog pd;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +65,7 @@ public class CompassActivity extends AppCompatActivity {
         dist = findViewById(R.id.distance);
         arrowView = findViewById(R.id.img_compass);
         sotwLabel = findViewById(R.id.txt_azimuth);
+        new GPS().execute();
         setupCompass();
     }
     private void fetchLastLocation() {
@@ -124,8 +138,8 @@ public class CompassActivity extends AppCompatActivity {
         v.vibrate(pattern, -1);
     }
     private void adjustArrow(float azimuth) {
-            Log.d(TAG, "will set rotation from " + currentAzimuth + " to "
-                    + azimuth);
+            //Log.d(TAG, "will set rotation from " + currentAzimuth + " to "
+              //      + azimuth);
 
 
             Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
@@ -171,5 +185,98 @@ public class CompassActivity extends AppCompatActivity {
                 });
             }
         };
+    }
+
+    private class GPS extends AsyncTask<Void, Void, Void> {
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            // Showing progress dialog
+            pd = new ProgressDialog(CompassActivity.this);
+            pd.setMessage("Please wait...");
+            pd.setCancelable(false);
+            pd.show();
+
+        }
+
+        @Override
+        protected Void doInBackground(Void... arg0) {
+            Http sh = new Http();
+
+            // Making a request to url and getting response
+            String jsonStr = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/"+busNumber+".json");
+//COLLUMS
+// 0"DATAHORA","
+// 1ORDEM",
+// 2"LINHA",
+// 3"LATITUDE",
+// 4"LONGITUDE",
+// 5"VELOCIDADE"
+
+            Log.d(TAG, "Response from url: " + jsonStr);
+
+            if (jsonStr != null) {
+                try {
+                    JSONObject jsonObj = new JSONObject(jsonStr.substring(jsonStr.indexOf("{"), jsonStr.lastIndexOf("}") + 1));
+                    // Getting JSON Array node
+                    JSONArray points = jsonObj.getJSONArray("DATA");
+                    Log.i(TAG, "ok");
+
+Log.i(TAG, "Lenght is " + points.length());
+                    // looping through All Routes
+                    for (int i = 0; i < points.length(); i++) {
+                        //JSONObject t = points.getJSONObject(i);
+                        Log.i(TAG, "ok2");
+                        JSONArray times = points.getJSONArray(i);
+                        Log.i(TAG, "ok3");
+                        String curBus = times.getString(2);
+                        if(curBus.contains(busNumber))
+                        {
+                            Log.i(TAG, curBus);
+                            String latitude = times.getString(3);
+                            String longitude= times.getString(4);
+                            String velocidade= times.getString(5);
+                            Log.i(TAG, "Last location is at " + latitude +", " + longitude + " at speed " + velocidade + " after " + i +" times checked.");
+                            Log.i(TAG, "ok4");
+                        }
+
+                    }
+                } catch (final JSONException e) {
+                    Log.e(TAG, "Json parsing error: " + e.getMessage());
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(getApplicationContext(),
+                                    "Json parsing error: " + e.getMessage(),
+                                    Toast.LENGTH_LONG)
+                                    .show();
+                        }
+                    });
+
+                }
+            } else {
+                Log.e(TAG, "Couldn't get json from server.");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplicationContext(),
+                                "Couldn't get json from server. Check LogCat for possible errors!",
+                                Toast.LENGTH_LONG)
+                                .show();
+                    }
+                });
+
+            }
+
+            return null;
+        }
+        @Override
+        protected void onPostExecute(Void result) {
+            super.onPostExecute(result);
+            // Dismiss the progress dialog
+            if (pd.isShowing())
+                pd.dismiss();
+
+        }
     }
 }

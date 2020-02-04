@@ -114,7 +114,7 @@ public class Compass implements SensorEventListener {
                 azimuth = (float) Math.toDegrees(orientation[0]); // orientation
                 azimuth = (azimuth + 360) % 360;
                 azimuth -= bearing(CompassActivity.currentlocation.getLatitude(), CompassActivity.currentlocation.getLongitude(),45.311725,5.7093152 );
-                Log.d(TAG, "azimuth (deg): " + azimuth);
+                //Log.d(TAG, "azimuth (deg): " + azimuth);
 
                 if (listener != null) {
                     listener.onNewAzimuth(azimuth);
