@@ -55,7 +55,7 @@ public class CompassActivity extends AppCompatActivity {
     private TextView sotwLabel;  // SOTW is for "side of the world"
     Button checkBus;
     TextView dist;
-    String busNumber = "439";
+    String busNumber;
     String jedi = "-22.933276,-43.184910";
     String bipLocation;
     boolean goCompass= false;
@@ -78,7 +78,7 @@ public class CompassActivity extends AppCompatActivity {
         dist = findViewById(R.id.distance);
         arrowView = findViewById(R.id.img_compass);
         sotwLabel = findViewById(R.id.txt_azimuth);
-        new GPS().execute();
+        new Warming().execute();
     }
 
 
@@ -88,6 +88,7 @@ public class CompassActivity extends AppCompatActivity {
 
         handler.postDelayed( runnable = new Runnable() {
             public void run() {
+                if(busNumber != null)
                 new GPS().execute();
 
                 handler.postDelayed(runnable, delay);
@@ -137,8 +138,8 @@ public class CompassActivity extends AppCompatActivity {
             Http sh = new Http();
 
             // Making a request to url and getting response
-            String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/"+busNumber+".json");
-            String jsonStr = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/A27550.json");
+
+            String jsonStr = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/"+busNumber+".json");
 //COLLUMS
 // 0"DATAHORA","
 // 1ORDEM",
@@ -146,90 +147,8 @@ public class CompassActivity extends AppCompatActivity {
 // 3"LATITUDE",
 // 4"LONGITUDE",
 // 5"VELOCIDADE"
-            Log.d(TAG, "Response from url: " + jsonJedi);
+
             Log.d(TAG, "Response from url: " + jsonStr);
-            if (jsonJedi != null) {
-                try {
-                    String[] latlong =  jedi.split(",");
-                    double llatitude = abs(Double.parseDouble(latlong[0]));
-                    double llongitude = abs(Double.parseDouble(latlong[1]));
-                    double total =  llatitude + llongitude;
-
-                    JSONObject jsonObj = new JSONObject(jsonJedi.substring(jsonJedi.indexOf("{"), jsonJedi.lastIndexOf("}") + 1));
-                    // Getting JSON Array node
-                    JSONArray points = jsonObj.getJSONArray("DATA");
-                    Log.i(TAG, "ok");
-
-                    Log.i(TAG, "Lenght is " + points.length());
-                    double bips[];
-                    double pibs[];
-                    double bp[];
-                    double piupow[];
-                    Log.i(TAG, "wow" +points.length());
-                    pibs = new double[points.length()];
-                    Log.i(TAG, "woww" +points.length());
-                    bips = new double[points.length()];
-                    bp = new double[points.length()];
-                    piupow = new double[points.length()];
-                    // looping through All Routes
-                    for (int i = 0; i < points.length(); i++) {
-                        //JSONObject t = points.getJSONObject(i);
-                        Log.i(TAG, "ok2");
-                        JSONArray times = points.getJSONArray(i);
-                        Log.i(TAG, "ok3");
-                        String curBus = times.getString(2);
-
-                        Log.i(TAG, curBus);
-                        String time = times.getString(0);
-                        String latitude = times.getString(3);
-                        String longitude= times.getString(4);
-                        String velocidade= times.getString(5);
-                        Log.i(TAG, time+"Last location is at " + latitude +", " + longitude + " at speed " + velocidade + " after " + i +" times checked.");
-                        bips[i] =  times.getDouble(3);
-                        pibs[i] = times.getDouble(4);
-                        bp[i] = abs(bips[i]) + abs(pibs[i]);
-                        Log.i(TAG, "WWWoow " + bp[i]);
-                        piupow[i] = bp[i] - total;
-                        Log.i(TAG, "ok4" + piupow[i]);
-
-
-                    }
-                    double great = Arrays.stream(piupow).min().getAsDouble();
-                    Log.i(TAG, "WAAAAA " + great);
-                    for (int i = 0; i < piupow.length; i++) {
-                        if (piupow[i] == great)
-                            index = i;
-                    }
-                    String nowLocation = bips[index] +", " + pibs[index];
-                    Log.i(TAG, "UNSINN! DIE LOOP IS KAPPUTT! " + index +" hahaha " + nowLocation);
-
-
-                } catch (final JSONException e) {
-                    Log.e(TAG, "Json parsing error: " + e.getMessage());
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(),
-                                    "Json parsing error: " + e.getMessage(),
-                                    Toast.LENGTH_LONG)
-                                    .show();
-                        }
-                    });
-
-                }
-            } else {
-                Log.e(TAG, "Couldn't get json from server.");
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(getApplicationContext(),
-                                "Couldn't get json from server. Check LogCat for possible errors!",
-                                Toast.LENGTH_LONG)
-                                .show();
-                    }
-                });
-
-            }
             if (jsonStr != null) {
                 try {
                     JSONObject jsonObj = new JSONObject(jsonStr.substring(jsonStr.indexOf("{"), jsonStr.lastIndexOf("}") + 1));
@@ -294,4 +213,124 @@ public class CompassActivity extends AppCompatActivity {
 
         }
     }
+    private class Warming extends AsyncTask<Void, Void, Void> {
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            // Showing progress dialog
+            pd = new ProgressDialog(CompassActivity.this);
+            pd.setMessage("Please wait...");
+            pd.setCancelable(false);
+            pd.show();
+
+        }
+
+        @Override
+        protected Void doInBackground(Void... arg0) {
+            Https sh = new Https();
+
+            // Making a request to url and getting response
+            String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/439.json");
+
+            Log.d(TAG, "Response from url: " + jsonJedi);
+            if (jsonJedi != null) {
+                try {
+                    String[] latlong =  jedi.split(",");
+                    double llatitude = abs(Double.parseDouble(latlong[0]));
+                    double llongitude = abs(Double.parseDouble(latlong[1]));
+                    double total =  llatitude + llongitude;
+
+                    JSONObject jsonObj = new JSONObject(jsonJedi.substring(jsonJedi.indexOf("{"), jsonJedi.lastIndexOf("}") + 1));
+                    // Getting JSON Array node
+                    JSONArray points = jsonObj.getJSONArray("DATA");
+                    Log.i(TAG, "ok");
+
+                    Log.i(TAG, "Lenght is " + points.length());
+                    double bips[];
+                    double pibs[];
+                    double bp[];
+                    double piupow[];
+                    String algorithmBus[];
+                    Log.i(TAG, "wow" +points.length());
+                    pibs = new double[points.length()];
+                    Log.i(TAG, "woww" +points.length());
+                    bips = new double[points.length()];
+                    bp = new double[points.length()];
+                    piupow = new double[points.length()];
+                    algorithmBus = new String[points.length()];
+                    // looping through All Routes
+                    for (int i = 0; i < points.length(); i++) {
+                        //JSONObject t = points.getJSONObject(i);
+                        Log.i(TAG, "ok2");
+                        JSONArray times = points.getJSONArray(i);
+                        Log.i(TAG, "ok3");
+                        String curBus = times.getString(2);
+
+                        Log.i(TAG, curBus);
+                        String time = times.getString(0);
+                        String latitude = times.getString(3);
+                        String longitude= times.getString(4);
+                        String velocidade= times.getString(5);
+                        Log.i(TAG, time+"Last location is at " + latitude +", " + longitude + " at speed " + velocidade + " after " + i +" times checked.");
+                        bips[i] =  times.getDouble(3);
+                        pibs[i] = times.getDouble(4);
+                        bp[i] = abs(bips[i]) + abs(pibs[i]);
+                        Log.i(TAG, "WWWoow " + bp[i]);
+                        piupow[i] = bp[i] - total;
+                        Log.i(TAG, "ok4" + piupow[i]);
+                        algorithmBus[i] = times.getString(1);
+                    }
+                    double great = Arrays.stream(piupow).min().getAsDouble();
+                    Log.i(TAG, "WAAAAA " + great);
+                    for (int i = 0; i < piupow.length; i++) {
+                        if (piupow[i] == great) {
+                            index = i;
+                            busNumber = algorithmBus[i];
+                        }
+                    }
+                    String nowLocation = bips[index] +", " + pibs[index];
+                    Log.i(TAG, "UNSINN! DIE LOOP IS KAPPUTT! " + index +" hahaha " + nowLocation +"   " + busNumber);
+
+
+                } catch (final JSONException e) {
+                    Log.e(TAG, "Json parsing error: " + e.getMessage());
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(getApplicationContext(),
+                                    "Json parsing error: " + e.getMessage(),
+                                    Toast.LENGTH_LONG)
+                                    .show();
+                        }
+                    });
+
+                }
+            } else {
+                Log.e(TAG, "Couldn't get json from server.");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplicationContext(),
+                                "Couldn't get json from server. Check LogCat for possible errors!",
+                                Toast.LENGTH_LONG)
+                                .show();
+                    }
+                });
+
+            }
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+            super.onPostExecute(result);
+            // Dismiss the progress dialog
+            if (pd.isShowing())
+                pd.dismiss();
+
+            new GPS().execute();
+        }
+    }
+
 }
