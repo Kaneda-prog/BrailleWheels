@@ -10,6 +10,7 @@ import android.location.Location;
 import android.location.LocationManager;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.animation.Animation;
@@ -24,6 +25,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
+import com.google.android.gms.common.util.ArrayUtils;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -34,7 +36,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+
+import static java.lang.StrictMath.abs;
 
 
 public class CompassActivity extends AppCompatActivity {
@@ -48,11 +55,17 @@ public class CompassActivity extends AppCompatActivity {
     private TextView sotwLabel;  // SOTW is for "side of the world"
     Button checkBus;
     TextView dist;
-    String busNumber = "895.0";
+    String busNumber = "439";
+    String jedi = "-22.933276,-43.184910";
+    String bipLocation;
     boolean goCompass= false;
     private float currentAzimuth;
     private SOTW sotwFormatter;
     private ProgressDialog pd;
+    Handler handler = new Handler();
+    Runnable runnable;
+    int delay = 60*1000;
+    private int index;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -66,7 +79,22 @@ public class CompassActivity extends AppCompatActivity {
         arrowView = findViewById(R.id.img_compass);
         sotwLabel = findViewById(R.id.txt_azimuth);
         new GPS().execute();
-        setupCompass();
+    }
+
+
+@Override
+    protected void onResume() {
+        //start handler as activity become visible
+
+        handler.postDelayed( runnable = new Runnable() {
+            public void run() {
+                new GPS().execute();
+
+                handler.postDelayed(runnable, delay);
+            }
+        }, delay);
+
+        super.onResume();
     }
     private void fetchLastLocation() {
         if(ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED){
@@ -79,112 +107,17 @@ public class CompassActivity extends AppCompatActivity {
             public void onSuccess(Location location) {
                 if(location!= null) {
                     currentlocation = location;
-                    Intent intent = getIntent();
-                    String position = intent.getStringExtra("firstStop");
-                    String[] latlong =  position.split(",");
-                    double latitude = Double.parseDouble(latlong[0]);
-                    double longitude = Double.parseDouble(latlong[1]);
-                    LatLng latLng = new LatLng(latitude, longitude);
-                    Location temp = new Location(LocationManager.GPS_PROVIDER);
-                    temp.setLatitude(latitude);
-                    temp.setLongitude(longitude);
-                    Log.i(TAG, "LOOOOOK" + temp +"   " +  currentlocation);
-                    dist.setText("Distance to bus is " + currentlocation.distanceTo(temp) + " meters.");
+                    //Intent intent = getIntent();
+                   // String position = intent.getStringExtra("firstStop");
+                    //String[] latlong =  position.split(",");
+                   // double latitude = Double.parseDouble(latlong[0]);
+                   // double longitude = Double.parseDouble(latlong[1]);
+                    //LatLng latLng = new LatLng(latitude, longitude);
+
                 }
             }
 
         });
-    }
-
-       @Override
-    protected void onStart() {
-        super.onStart();
-
-            Log.d(TAG, "start compass");
-            compass.start();
-    }
-
-    @Override
-    protected void onPause() {
-            super.onPause();
-            compass.stop();
-
-    }
-
-    @Override
-    protected void onResume() {
-
-            super.onResume();
-            compass.start();
-
-    }
-
-    @Override
-    protected void onStop() {
-
-            super.onStop();
-            Log.d(TAG, "stop compass");
-            compass.stop();
-
-    }
-
-    private void setupCompass() {
-        compass = new Compass(this);
-        Compass.CompassListener cl = getCompassListener();
-        compass.setListener(cl);
-    }
-    private void shakeItBaby() {
-        long[] pattern = {0, 100, 50, 300};
-        v.vibrate(pattern, -1);
-    }
-    private void adjustArrow(float azimuth) {
-            //Log.d(TAG, "will set rotation from " + currentAzimuth + " to "
-              //      + azimuth);
-
-
-            Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
-                    Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
-                    0.5f);
-            currentAzimuth = azimuth;
-
-            an.setDuration(100);
-            an.setRepeatCount(0);
-            if (azimuth > -1 && azimuth < 1) {
-                shakeItBaby();
-            }
-            arrowView.startAnimation(an);
-
-    }
-
-    private void adjustSotwLabel(float azimuth) {
-        sotwLabel.setText(sotwFormatter.format(azimuth));
-    }
-    protected double bearing(double startLat, double startLng, double endLat, double endLng){
-        double longitude1 = startLng;
-        double longitude2 = endLng;
-        double latitude1 = Math.toRadians(startLat);
-        double latitude2 = Math.toRadians(endLat);
-        double longDiff= Math.toRadians(longitude2-longitude1);
-        double y= Math.sin(longDiff)*Math.cos(latitude2);
-        double x=Math.cos(latitude1)*Math.sin(latitude2)-Math.sin(latitude1)*Math.cos(latitude2)*Math.cos(longDiff);
-
-        return (Math.toDegrees(Math.atan2(y, x))+360)%360;
-    }
-    private Compass.CompassListener getCompassListener() {
-        return new Compass.CompassListener() {
-            @Override
-            public void onNewAzimuth(final float azimuth) {
-                // UI updates only in UI thread
-                // https://stackoverflow.com/q/11140285/444966
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        adjustArrow(azimuth);
-                        adjustSotwLabel(azimuth);
-                    }
-                });
-            }
-        };
     }
 
     private class GPS extends AsyncTask<Void, Void, Void> {
@@ -204,7 +137,8 @@ public class CompassActivity extends AppCompatActivity {
             Http sh = new Http();
 
             // Making a request to url and getting response
-            String jsonStr = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/"+busNumber+".json");
+            String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/"+busNumber+".json");
+            String jsonStr = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/A27550.json");
 //COLLUMS
 // 0"DATAHORA","
 // 1ORDEM",
@@ -212,17 +146,31 @@ public class CompassActivity extends AppCompatActivity {
 // 3"LATITUDE",
 // 4"LONGITUDE",
 // 5"VELOCIDADE"
-
+            Log.d(TAG, "Response from url: " + jsonJedi);
             Log.d(TAG, "Response from url: " + jsonStr);
-
-            if (jsonStr != null) {
+            if (jsonJedi != null) {
                 try {
-                    JSONObject jsonObj = new JSONObject(jsonStr.substring(jsonStr.indexOf("{"), jsonStr.lastIndexOf("}") + 1));
+                    String[] latlong =  jedi.split(",");
+                    double llatitude = abs(Double.parseDouble(latlong[0]));
+                    double llongitude = abs(Double.parseDouble(latlong[1]));
+                    double total =  llatitude + llongitude;
+
+                    JSONObject jsonObj = new JSONObject(jsonJedi.substring(jsonJedi.indexOf("{"), jsonJedi.lastIndexOf("}") + 1));
                     // Getting JSON Array node
                     JSONArray points = jsonObj.getJSONArray("DATA");
                     Log.i(TAG, "ok");
 
-Log.i(TAG, "Lenght is " + points.length());
+                    Log.i(TAG, "Lenght is " + points.length());
+                    double bips[];
+                    double pibs[];
+                    double bp[];
+                    double piupow[];
+                    Log.i(TAG, "wow" +points.length());
+                    pibs = new double[points.length()];
+                    Log.i(TAG, "woww" +points.length());
+                    bips = new double[points.length()];
+                    bp = new double[points.length()];
+                    piupow = new double[points.length()];
                     // looping through All Routes
                     for (int i = 0; i < points.length(); i++) {
                         //JSONObject t = points.getJSONObject(i);
@@ -230,15 +178,82 @@ Log.i(TAG, "Lenght is " + points.length());
                         JSONArray times = points.getJSONArray(i);
                         Log.i(TAG, "ok3");
                         String curBus = times.getString(2);
-                        if(curBus.contains(busNumber))
-                        {
+
+                        Log.i(TAG, curBus);
+                        String time = times.getString(0);
+                        String latitude = times.getString(3);
+                        String longitude= times.getString(4);
+                        String velocidade= times.getString(5);
+                        Log.i(TAG, time+"Last location is at " + latitude +", " + longitude + " at speed " + velocidade + " after " + i +" times checked.");
+                        bips[i] =  times.getDouble(3);
+                        pibs[i] = times.getDouble(4);
+                        bp[i] = abs(bips[i]) + abs(pibs[i]);
+                        Log.i(TAG, "WWWoow " + bp[i]);
+                        piupow[i] = bp[i] - total;
+                        Log.i(TAG, "ok4" + piupow[i]);
+
+
+                    }
+                    double great = Arrays.stream(piupow).min().getAsDouble();
+                    Log.i(TAG, "WAAAAA " + great);
+                    for (int i = 0; i < piupow.length; i++) {
+                        if (piupow[i] == great)
+                            index = i;
+                    }
+                    String nowLocation = bips[index] +", " + pibs[index];
+                    Log.i(TAG, "UNSINN! DIE LOOP IS KAPPUTT! " + index +" hahaha " + nowLocation);
+
+
+                } catch (final JSONException e) {
+                    Log.e(TAG, "Json parsing error: " + e.getMessage());
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(getApplicationContext(),
+                                    "Json parsing error: " + e.getMessage(),
+                                    Toast.LENGTH_LONG)
+                                    .show();
+                        }
+                    });
+
+                }
+            } else {
+                Log.e(TAG, "Couldn't get json from server.");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(getApplicationContext(),
+                                "Couldn't get json from server. Check LogCat for possible errors!",
+                                Toast.LENGTH_LONG)
+                                .show();
+                    }
+                });
+
+            }
+            if (jsonStr != null) {
+                try {
+                    JSONObject jsonObj = new JSONObject(jsonStr.substring(jsonStr.indexOf("{"), jsonStr.lastIndexOf("}") + 1));
+                    // Getting JSON Array node
+                    JSONArray points = jsonObj.getJSONArray("DATA");
+                    Log.i(TAG, "ok");
+
+            Log.i(TAG, "Lenght is " + points.length());
+                    // looping through All Routes
+                    for (int i = 0; i < points.length(); i++) {
+                        //JSONObject t = points.getJSONObject(i);
+                        Log.i(TAG, "ok2");
+                        JSONArray times = points.getJSONArray(i);
+                        Log.i(TAG, "ok3");
+                        String curBus = times.getString(2);
+
                             Log.i(TAG, curBus);
+                            String time = times.getString(0);
                             String latitude = times.getString(3);
                             String longitude= times.getString(4);
                             String velocidade= times.getString(5);
-                            Log.i(TAG, "Last location is at " + latitude +", " + longitude + " at speed " + velocidade + " after " + i +" times checked.");
+                            Log.i(TAG, time+"Last location is at " + latitude +", " + longitude + " at speed " + velocidade + " after " + i +" times checked.");
                             Log.i(TAG, "ok4");
-                        }
+
 
                     }
                 } catch (final JSONException e) {

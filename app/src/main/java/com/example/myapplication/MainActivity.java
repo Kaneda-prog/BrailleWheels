@@ -174,6 +174,7 @@ public void text()
             public void onSuccess(Location location) {
                 if (location != null) {
                     currentLocation = location;
+                    latLng = currentLocation.getLatitude() +"," +currentLocation.getLongitude();
                 }
             }
 
@@ -181,11 +182,12 @@ public void text()
     }
 
     public void onClick(View v) {
-        latLng = currentLocation.getLatitude() +"," +currentLocation.getLongitude();
         if (v == myButton) {
-                startVoiceRecognizitionActivity();
+            Intent on = new Intent(this,CompassActivity.class);
+            startActivity(on);
+                //startVoiceRecognizitionActivity();
 //voice = "Maracana";
-            new GetContacts().execute();
+            //new GetContacts().execute();
         }
     }
 
