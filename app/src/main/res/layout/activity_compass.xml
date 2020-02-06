@@ -23,7 +23,7 @@
         android:id="@+id/txt_azimuth"/>
 
     <Button
-        android:id="@+id/button"
+        android:id="@+id/atBus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Button" />
@@ -44,6 +44,14 @@
         android:layout_below="@+id/txt_azimuth"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="222dp"
+        android:text="TextView" />
+
+    <TextView
+        android:id="@+id/duration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="150dp"
+        android:layout_marginTop="200dp"
         android:text="TextView" />
 
 </RelativeLayout>

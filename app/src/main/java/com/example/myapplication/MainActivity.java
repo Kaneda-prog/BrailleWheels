@@ -256,7 +256,7 @@ public void text()
                     JSONArray routes = jsonObj.getJSONArray("routes");
                     // looping through All Routes
                     for (int i = 0; i < routes.length(); i++) {
-                       HashMap<String, String> contact = new HashMap<>();
+                        HashMap<String, String> contact = new HashMap<>();
                         Log.i(TAG, "This is route no " +i);
                         baldiacao = new int[routes.length()];
                         JSONObject c = routes.getJSONObject(i);
@@ -281,17 +281,17 @@ public void text()
                             JSONObject arrival = d.getJSONObject("arrival_time");
                             String arrivalT = arrival.getString("text");
                             JSONObject departure = d.getJSONObject("departure_time");
-                                String departureT = departure.getString("text");
+                            String departureT = departure.getString("text");
                             JSONObject distance = d.getJSONObject("distance");
-                                dist = distance.getString("text");
+                            dist = distance.getString("text");
                             JSONObject duration = d.getJSONObject("duration");
-                                String durationT = duration.getString("text");
+                            String durationT = duration.getString("text");
                             JSONArray steps = d.getJSONArray("steps");
 
                             //Looping through the steps
                             for (int e = 0; e< steps.length(); e++) {
                                 JSONObject a = steps.getJSONObject(e);
-                                    String mode = a.getString("travel_mode");
+                                String mode = a.getString("travel_mode");
                                 Log.i(TAG, "The mode is " + mode +" for route no "+ i + " at leg " + o +", and at steps " + e );
                                 try{
                                     if(mode.equals("TRANSIT")) {
@@ -305,28 +305,28 @@ public void text()
                                         for (nm = (num-1); nm < num; nm++) {
 
                                             JSONObject details = a.getJSONObject("transit_details");
-                                                JSONObject departure_stop = details.getJSONObject("departure_stop");
-                                                    JSONObject aLocation = departure_stop.getJSONObject("location");
-                                                        String lat = aLocation.getString("lat");
-                                                        String lng = aLocation.getString("lng");
-                                                        String depStopLocation = lat + "," + lng;
-                                                JSONObject arrival_stop = details.getJSONObject("arrival_stop");
-                                                    JSONObject arLocation = arrival_stop.getJSONObject("location");
-                                                        String lati = arLocation.getString("lat");
-                                                        String lngo = arLocation.getString("lng");
-                                                        String arStopLocation = lati + "," + lngo;
-                                                JSONObject line = details.getJSONObject("line");
-                                                    String busNumber = line.getString("short_name");
-                                                        JSONObject vehicle = line.getJSONObject("vehicle");
-                                                            String type = vehicle.getString("type");
-                                                            String color = line.getString("color");
-                                                            String busName = vehicle.getString("name");
-                                                stopsNum = details.getString("num_stops");
-                                           contact.put("depStopLocation" + nm, depStopLocation);
-                                           contact.put("busNumber" + nm, busNumber +" ");
-                                           contact.put("busName" + nm, busName);
-                                           contact.put("color" + nm, color);
-                                           contact.put("numStops" + nm, stopsNum);
+                                            JSONObject departure_stop = details.getJSONObject("departure_stop");
+                                            JSONObject aLocation = departure_stop.getJSONObject("location");
+                                            String lat = aLocation.getString("lat");
+                                            String lng = aLocation.getString("lng");
+                                            String depStopLocation = lat + "," + lng;
+                                            JSONObject arrival_stop = details.getJSONObject("arrival_stop");
+                                            JSONObject arLocation = arrival_stop.getJSONObject("location");
+                                            String lati = arLocation.getString("lat");
+                                            String lngo = arLocation.getString("lng");
+                                            String arStopLocation = lati + "," + lngo;
+                                            JSONObject line = details.getJSONObject("line");
+                                            String busNumber = line.getString("short_name");
+                                            JSONObject vehicle = line.getJSONObject("vehicle");
+                                            String type = vehicle.getString("type");
+                                            String color = line.getString("color");
+                                            String busName = vehicle.getString("name");
+                                            stopsNum = details.getString("num_stops");
+                                            contact.put("depStopLocation" + nm, depStopLocation);
+                                            contact.put("busNumber" + nm, busNumber +" ");
+                                            contact.put("busName" + nm, busName);
+                                            contact.put("color" + nm, color);
+                                            contact.put("numStops" + nm, stopsNum);
                                             if(nm > 0) {
 
                                             }
@@ -334,7 +334,7 @@ public void text()
                                             Log.wtf(TAG, "We have added " + nm +" bus jumps, that's right.");
                                             Log.i(TAG, "The starting bus Stop for step " + e + " is at " + depStopLocation);
                                             Log.i(TAG, "The ending bus Stop for step " + e + " is at " + arStopLocation);
-                                             }
+                                        }
                                         Log.i(TAG,"For loop finished." );
 
                                     }
@@ -345,7 +345,7 @@ public void text()
                                     if(steps.length() > 1) {
                                         Log.i(TAG, "LOOKA!");
                                         if(e == (steps.length()-1))
-                                        contactList.add(contact);
+                                            contactList.add(contact);
                                     }
                                     else {
                                         Log.i(TAG, "looka!");
@@ -358,14 +358,14 @@ public void text()
                                     Log.e(TAG, "Hey!" + e1 + " >:(");
                                 }
 
-                        }
+                            }
                             // adding each child node to HashMap key => value
 
 
-                          /**
-                                    Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>smashicons" title="Smashicons">Smashicons</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
-                                    Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>photo3idea-studio" title="photo3idea_studio">photo3idea_studio</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
-                                   **/
+                            /**
+                             Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>smashicons" title="Smashicons">Smashicons</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
+                             Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>photo3idea-studio" title="photo3idea_studio">photo3idea_studio</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
+                             **/
 
                             // adding contact to contact list
 
@@ -400,12 +400,12 @@ public void text()
 
             return null;
         }
-public void makeStuff(){
+        public void makeStuff(){
 
 
 
 
-}
+        }
         @Override
         protected void onPostExecute(Void result) {
             super.onPostExecute(result);
@@ -413,7 +413,7 @@ public void makeStuff(){
             if (pd.isShowing())
                 pd.dismiss();
             /**
-              Updating parsed JSON data into ListView
+             Updating parsed JSON data into ListView
              **/
             Log.i(TAG, "ah" );
 
@@ -424,6 +424,6 @@ public void makeStuff(){
                     R.id.duration, R.id.price, R.id.distance, R.id.busNumber0, R.id.busNumber1, R.id.busNumber2, R.id.route, R.id.stops, R.id.stopLocation0,R.id.stopLocation1,R.id.stopLocation2});
             myList.setAdapter(adapter);
             Log.i(TAG, "uh" );
+        }
     }
-}
 }
