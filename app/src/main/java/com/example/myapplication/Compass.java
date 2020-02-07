@@ -113,7 +113,16 @@ public class Compass implements SensorEventListener {
                 // Log.d(TAG, "azimuth (rad): " + azimuth);
                 azimuth = (float) Math.toDegrees(orientation[0]); // orientation
                 azimuth = (azimuth + 360) % 360;
+        if(CompassActivity.nowLocation != null){
+                String[] position =  CompassActivity.nowLocation.split(",");
+                double latitude = Double.parseDouble(position[0]);
+                double longitude = Double.parseDouble(position[1]);
+                azimuth -= bearing(CompassActivity.currentlocation.getLatitude(), CompassActivity.currentlocation.getLongitude(),latitude,longitude );
+                }
+        else{
                 azimuth -= bearing(CompassActivity.currentlocation.getLatitude(), CompassActivity.currentlocation.getLongitude(),45.311725,5.7093152 );
+
+        }
                 //Log.d(TAG, "azimuth (deg): " + azimuth);
 
                 if (listener != null) {

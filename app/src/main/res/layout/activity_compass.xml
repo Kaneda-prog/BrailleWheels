@@ -47,6 +47,14 @@
         android:text="TextView" />
 
     <TextView
+        android:id="@+id/busAtStop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="160dp"
+        android:layout_marginTop="150dp"
+        android:text="TextView" />
+
+    <TextView
         android:id="@+id/duration"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

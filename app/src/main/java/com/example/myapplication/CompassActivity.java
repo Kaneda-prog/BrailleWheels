@@ -65,11 +65,13 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
      public Button checkBus;
     TextView dist;
     TextView duration;
+    TextView atStop;
     String distancee;
     String busNumber;
+    int linha = 133;
     //-22.917386,-43.250297
-    String jedi = "-22.9162006,-43.250998";
-    String bipLocation;
+    String jedi = "-22.9309794,-43.1786234";
+    String busLocation;
     boolean goCompass= false;
     private float currentAzimuth;
     private SOTW sotwFormatter;
@@ -81,8 +83,9 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private int index;
     private String value;
     private String distValue;
-    private String nowLocation;
+    static public String nowLocation;
     private int ii;
+    private int veclopis;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,33 +98,108 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
         v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         sotwFormatter = new SOTW(this);
         dist = findViewById(R.id.distance);
+        atStop = findViewById(R.id.busAtStop);
         arrowView = findViewById(R.id.img_compass);
         sotwLabel = findViewById(R.id.txt_azimuth);
         duration = findViewById(R.id.duration);
         new Warming().execute();
+        setupCompass();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+fetchLastLocation();
+        Log.d(TAG, "start compass");
+        compass.start();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        compass.stop();
+
+    }
+    @Override
+    protected void onStop() {
+
+        super.onStop();
+        Log.d(TAG, "stop compass");
+        compass.stop();
 
     }
 
+    private void setupCompass() {
+        compass = new Compass(this);
+        Compass.CompassListener cl = getCompassListener();
+        compass.setListener(cl);
+    }
+    private void shakeItBaby() {
+        long[] pattern = {0, 100, 50, 300};
+        v.vibrate(pattern, -1);
+    }
+    private void adjustArrow(float azimuth) {
+
+        Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
+                Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
+                0.5f);
+        currentAzimuth = azimuth;
+
+        an.setDuration(100);
+        an.setRepeatCount(0);
+        if (azimuth > -1 && azimuth < 1) {
+            shakeItBaby();
+        }
+        arrowView.startAnimation(an);
+
+    }
+
+    private void adjustSotwLabel(float azimuth) {
+        sotwLabel.setText(sotwFormatter.format(azimuth));
+    }
+    private Compass.CompassListener getCompassListener() {
+        return new Compass.CompassListener() {
+            @Override
+            public void onNewAzimuth(final float azimuth) {
+                // UI updates only in UI thread
+                // https://stackoverflow.com/q/11140285/444966
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        adjustArrow(azimuth);
+                        adjustSotwLabel(azimuth);
+                    }
+                });
+            }
+        };
+    }
 @Override
     protected void onResume() {
+
         //start handler as activity become visible
     if(aboardBus == false) {
         handler.postDelayed(runnable = new Runnable() {
             public void run() {
                 if (busNumber != null)
                     new GPS().execute();
+                atStop.setText("Bus at Stop: " + busAtStop);
                 handler.postDelayed(runnable, delay);
             }
         }, delay);
-        handler.postDelayed(runnable = new Runnable() {
+        compass.start();
+       /* handler.postDelayed(runnable = new Runnable() {
             public void run() {
                 if (busNumber != null)
                     new Warming().execute();
                 handler.postDelayed(runnable, delayy);
             }
-        }, delayy);
+        }, delayy);*/
     }
+else{
 
+
+
+    }
         super.onResume();
     }
     public void onClick(View v) {
@@ -203,8 +281,8 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                             String latitude = times.getString(3);
                             String longitude= times.getString(4);
                             String velocidade= times.getString(5);
-                            bipLocation = latitude +"," + longitude;
-                            Log.i(TAG, time+"Last location is at " + bipLocation + " at speed " + velocidade);
+                            busLocation = latitude +"," + longitude;
+                            Log.i(TAG, time+"Last location is at " + busLocation + " at speed " + velocidade);
 
 
                 } catch (final JSONException e) {
@@ -243,7 +321,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             if (pd.isShowing())
                 pd.dismiss();
             //BusLocation
-            String[] position =  bipLocation.split(",");
+            String[] position =  busLocation.split(",");
             double latitude = Double.parseDouble(position[0]);
             double longitude = Double.parseDouble(position[1]);
             jediBus = new Location("Aa");
@@ -270,7 +348,19 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                 Log.i(TAG, "The bus has arrived.");
                 Toast.makeText(getApplicationContext(), "The bus has arrived", Toast.LENGTH_SHORT).show();
             v.vibrate(500);
+                setupCompass();
             }
+            if(busAtStop ==true){
+                if(aboardBus ==true)
+                {
+                    if(veclopis >0 && dist > 15)
+                    {
+                        busAtStop = false;
+
+                    }
+                }
+            }
+            setupCompass();
         }
 
     }
@@ -309,7 +399,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             Http sh = new Http();
 
             // Making a request to url and getting response
-            String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/439.json");
+            String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/"+linha+".json");
 
            // Log.d(TAG, "Response from url: " + jsonJedi);
             if (jsonJedi != null) {
@@ -352,13 +442,14 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                         checkProximity.setLatitude(times.getDouble(3));
                         checkProximity.setLongitude(times.getDouble(4));
 
-
+                        veclopis = times.getInt(5);
                         if(busStop.distanceTo(checkProximity) >15)
                         {
                             latitudes[i] =  times.getDouble(3);
                             longitudes[i] = times.getDouble(4);
                         }
-                        else if(busStop.distanceTo(checkProximity) <15 && times.getInt(5) == 0){
+
+                        else if(busStop.distanceTo(checkProximity) <15 && veclopis  == 0){
                           busAtStop = true;
                           latitudes[i] =  times.getDouble(3);
                           longitudes[i] = times.getDouble(4);
