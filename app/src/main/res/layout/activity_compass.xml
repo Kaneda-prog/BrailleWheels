@@ -57,15 +57,16 @@
         android:id="@+id/busAtStop"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
         android:layout_marginStart="160dp"
-        android:layout_marginTop="150dp"
+        android:layout_marginTop="100dp"
         android:text="TextView" />
 
     <TextView
         android:id="@+id/duration"
-        android:layout_width="wrap_content"
+        android:layout_width="240dp"
         android:layout_height="wrap_content"
-        android:layout_marginLeft="150dp"
+        android:layout_centerHorizontal="true"
         android:layout_marginTop="200dp"
         android:text="TextView" />
 
@@ -75,8 +76,8 @@
         android:layout_height="wrap_content"
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
-        android:layout_marginTop="216dp"
-        android:layout_marginEnd="36dp"
+        android:layout_marginTop="150dp"
+        android:layout_marginEnd="10dp"
         android:text="TextView" />
 
 </RelativeLayout>

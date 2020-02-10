@@ -113,7 +113,7 @@ public class Compass implements SensorEventListener {
                 // Log.d(TAG, "azimuth (rad): " + azimuth);
                 azimuth = (float) Math.toDegrees(orientation[0]); // orientation
                 //Log.i(TAG, "oh " + azimuth);
-                azimuth = (azimuth + 180) % 360;
+                azimuth = (azimuth + 360) % 360;
         /*if(CompassActivity.nowLocation != null){
                 String[] position =  CompassActivity.nowLocation.split(",");
             double latitude = Double.parseDouble(position[0]);
