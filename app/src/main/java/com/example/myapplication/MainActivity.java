@@ -183,6 +183,7 @@ public void text()
 
     public void onClick(View v) {
         if (v == myButton) {
+            fetchLastLocation();
             Intent on = new Intent(this,CompassActivity.class);
             startActivity(on);
                 //startVoiceRecognizitionActivity();

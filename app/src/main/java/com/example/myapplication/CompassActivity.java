@@ -12,7 +12,10 @@ import android.os.Handler;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.RotateAnimation;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -33,6 +36,7 @@ import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.Arrays;
 
+import static com.example.myapplication.MainActivity.currentLocation;
 import static java.lang.StrictMath.abs;
 import static java.lang.StrictMath.cos;
 import static java.lang.StrictMath.sin;
@@ -60,7 +64,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private TextView busId;
     String distancee;
     String busNumber;
-    int linha = 133;
+    int linha = 112;
     //-22.917386,-43.250297
     static public String currentPosition = "-22.92715, -43.25187";
     String busLocation;
@@ -74,7 +78,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     Runnable runnable2;
     Runnable runnable3;
     int delay = 25 * 1000;
-    int delayy = 3 * 1000;
+    int delayy = 2 * 1000;
     private int index;
     private String value;
     private String distValue;
@@ -82,7 +86,6 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private int veclopis;
     private float lastDistance;
     private float distance;
-    private Location busStop;
     private Location checkProximity;
     public boolean busClose;
     private int ii;
@@ -97,6 +100,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private double sideDist;
     private boolean way;
     private Handler hand;
+    private ImageView arrowView;
 
 
     @Override
@@ -110,9 +114,12 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
         fetchLastLocation();
         //Button
         checkBus = findViewById(R.id.atBus);
+        checkBus.setText("Aboard the bus? Click here!");
         checkBus.setOnClickListener(this);
+
         //Vibrator Service
         v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        arrowView = findViewById(R.id.img_compass);
 
         sotwFormatter = new SOTW(this);
         //Text Views
@@ -163,10 +170,10 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
 
         });
     }
-
     @Override
     protected void onStart() {
         super.onStart();
+        fetchLastLocation();
         Log.d(TAG, "start compass");
         compass.start();
     }
@@ -195,7 +202,19 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     }
 
     private void adjustArrow(float azimuth) {
+        Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
+                Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
+                0.5f);
         currentAzimuth = azimuth;
+
+        an.setDuration(100);
+        an.setRepeatCount(0);
+        if (azimuth > -1 && azimuth < 1) {
+
+        }
+
+        arrowView.startAnimation(an);
+
     }
 
     private void adjustSotwLabel(float azimuth) {
@@ -223,7 +242,28 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
 
     @Override
     protected void onResume() {
-        //handler.postDelayed(run, 2000);
+        vibratorHandler.postDelayed(runnable = new Runnable() {
+            public void run() {
+                //Instructions(degree);
+                if (busAtStop) {
+
+                    if (currentAzimuth <-172&& currentAzimuth >-188) {
+                        way = true;
+                        long[] pattern = {0, 200, 200, 300};
+                        v.vibrate(pattern, -1);
+
+                    }
+                    if (currentAzimuth >172 && currentAzimuth <188) {
+                        way = true;
+                        long[] pattern = {0, 200, 200, 300};
+                        v.vibrate(pattern, -1);
+
+                    }
+                    Instructions(currentAzimuth);
+                }
+                handler.postDelayed(runnable, delayy);
+            }
+        }, delayy);
         handler.postDelayed(runnable2 = new Runnable() {
             public void run() {
                 if (busNumber != null)
@@ -301,17 +341,11 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                         calculations2[i] = distanceLat[i] + distanceLng[i];
                         algorithmBus[i] = bus.getString(1);
 
-                        String[] latLong = currentPosition.split(",");
-                        double latitude = Double.parseDouble(latLong[0]);
-                        double longitude = Double.parseDouble(latLong[1]);
-                        busStop = new Location("Bb");
-                        busStop.setLatitude(latitude);
-                        busStop.setLongitude(longitude);
                         checkProximity = new Location("abc");
                         checkProximity.setLatitude(latitudes[i]);
                         checkProximity.setLongitude(longitudes[i]);
                         veclopis = bus.getInt(5);
-                        distance = checkProximity.distanceTo(busStop);
+                        distance = checkProximity.distanceTo(currentLocation);
 
 
                     }
@@ -364,108 +398,67 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             if (pd.isShowing())
                 pd.dismiss();
             setupCompass();
-            if (busStop.distanceTo(checkProximity) < 9000.0f) {
+            if (currentLocation.distanceTo(checkProximity) < 5000.0f) {
                 busClose = true;
                 Log.i(TAG, " FINALLY A BUS IS CLOSE!!!!");
-                Toast.makeText(getApplicationContext(), "There's one bus close to you. It's time to call " + busNumber, Toast.LENGTH_SHORT).show();
-                if (busStop.distanceTo(checkProximity) < 9000.0f) {
+                if(currentLocation.distanceTo(checkProximity) >20.0f) {
+                    Toast.makeText(getApplicationContext(), "There's one bus close to you. It's time to call " + busNumber, Toast.LENGTH_SHORT).show();
+                }
+                if (currentLocation.distanceTo(checkProximity) < 1500.0f) {
                     if (veclopis != 0){
                         Toast.makeText(getApplicationContext(), "Wait for the bus to stop", Toast.LENGTH_SHORT).show();
                 }
-
-                        Toast.makeText(getApplicationContext(), "The bus has stopped. Follow the next directions to get in!", Toast.LENGTH_SHORT).show();
-                            degree = currentAzimuth;
-                         //Instructions(degree);
-                        busAtStop = true;
-
+if(veclopis == 0) {
+            Toast.makeText(getApplicationContext(), "The bus has stopped. Follow the next directions to get in!", Toast.LENGTH_SHORT).show();
+            busAtStop = true;
+}
                 }
             }
 
             busId.setText(busNumber);
-            velocity.setText("Bus is running at " + veclopis + " km.");
-            Log.i(TAG, "DISTANCE: " + busStop.distanceTo(checkProximity));
-            dist.setText("Closest bus at " + busStop.distanceTo(checkProximity));
+            atStop.setText("Bus at stop: "+ busAtStop);
+            velocity.setText("Speed:" + veclopis + " km.");
+            Log.i(TAG, "DISTANCE: " +currentLocation.distanceTo(checkProximity));
+            dist.setText("Closest bus at " + Math.round(currentLocation.distanceTo(checkProximity)) + " meters.");
 
-            vibratorHandler.postDelayed(runnable = new Runnable() {
-                public void run() {
-                    Instructions(degree);
-                    if (busAtStop) {
-                        if (atLeft) {
-                            if (currentAzimuth <-85 && currentAzimuth >-100 && !precision) {
-                                way = true;
-                                long[] pattern = {0, 100, 100, 300};
-                                v.vibrate(pattern, -1);
-                            }
-                        }
-                        else if (!atLeft) {
-                            if (currentAzimuth >85 && currentAzimuth <100 && !precision) {
-                                way = true;
-                                long[] pattern = {0, 100, 100, 300};
-                                v.vibrate(pattern, -1);
-                            }
-                        }
-                        if (hipDist == altura || hipDist == altura + 2 || hipDist < altura)
-                        {
-                            precision = true;
-                            long[] pattern = {0, 200, 200, 300};
-                            v.vibrate(pattern, -1);
 
-                        }
-                    }
-                    handler.postDelayed(runnable, delayy);
-                }
-            }, delayy);
-
-            // new busDriving().execute();
+            new busDriving().execute();
         }
     }
     final Runnable run  = new Runnable() {
         @Override
         public void run() {
             {
-                Instructions(currentAzimuth);
                 Log.i(TAG, " Runned");
             }
         }
     };
 public void Instructions( double azimuth) {
     Location start = new Location("loc");
-    start.setLatitude(-22.9595769);
-    start.setLongitude(-43.2013255);
+    start.setLatitude(checkProximity.getLatitude());
+    start.setLongitude(checkProximity.getLongitude());
     Location end = new Location("locc");
     fetchLastLocation();
-    end.setLatitude(currentlocation.getLatitude());
-    end.setLongitude(currentlocation.getLongitude());
+    end.setLatitude(currentLocation.getLatitude());
+    end.setLongitude(currentLocation.getLongitude());
     //end.setLatitude(-22.95969);
     //end.setLongitude(-43.20129);
     double latitude = abs(end.getLongitude()) - abs(start.getLongitude());
-    hipDist = abs(start.distanceTo(end));
-    heightDist = abs(sin(azimuth) * hipDist);
-    Log.i(TAG, " cos: "+ StrictMath.cos(Math.round(azimuth)));
-    sideDist = StrictMath.cos(Math.round(azimuth)) * Math.round(hipDist);
-    Log.i(TAG,StrictMath.cos(Math.round(azimuth)) +" * "+ Math.round(hipDist) + " = " + sideDist );
-    if (ii >= 0 && ii < 2)
-    {
-        largura = sideDist;
-        altura = heightDist;
-        ii++;
-    }
-    duration.setText("altura: "+ Math.round(altura) + " largura: "+ Math.round(largura) + "realAltura:"+ Math.round(heightDist) + " distanceTo:" + Math.round(hipDist)+" realLargura: "+ Math.round(sideDist) );
-    if(latitude > 0 && !precision) {
+
+    duration.setText("distanceTo:" + Math.round(hipDist));
+    if(latitude > 0 && !way) {
         atLeft = true;
         if(!way) {
-        turn = (azimuth - 90f);
-        Log.i(TAG, "wow! " + hipDist + " aaa " + latitude + " ee " + heightDist + " www " + distance);
-        Toast.makeText(getApplicationContext(), "Turn left " + Math.round(turn) + " degrees.You need to walk " + Math.round((abs(distance))) + " meters.", Toast.LENGTH_LONG).show();
+        turn = (180f - azimuth);
+       Toast.makeText(getApplicationContext(), "Turn left " + Math.round(turn) + " degrees.You need to walk " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
     }
     }
-    else if(latitude < 0&& !precision){
+    else if(latitude < 0&& !way){
         atLeft = false;
         if(way == false){
 
-        turn = abs(azimuth + 90f);
-        Log.i(TAG, "wow " + hipDist + " aaa " + latitude + " ee " + heightDist + " www " + distance);
-        Toast.makeText(getApplicationContext(), "Turn right " + Math.round(turn) + " degrees.You need to walk " + Math.round((abs(distance))) + " meters.", Toast.LENGTH_LONG).show();
+        turn = abs(180 - azimuth);
+       Toast.makeText(getApplicationContext(), "Turn right " + Math.round(turn) + " degrees.You need to walk " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
     }
     }
 
@@ -669,7 +662,7 @@ public void Instructions( double azimuth) {
             if (pd.isShowing())
                 pd.dismiss();
             Log.i(TAG, "Duration is " + value);
-            dist.setText("Closest bus at " + busStop.distanceTo(checkProximity) + ", real value of " + distValue);
+            dist.setText("Closest bus at " + Math.round(currentLocation.distanceTo(checkProximity)) + " meters, real value of " + distValue);
             duration.setText("Your bus will arive in " + value + ".");
 
         }

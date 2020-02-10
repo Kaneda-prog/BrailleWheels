@@ -11,7 +11,6 @@ import android.util.Log;
 public class Compass implements SensorEventListener {
 
     private static final String TAG = "Compass";
-    public Location location;
 
     public interface CompassListener {
         void onNewAzimuth(float azimuth);
@@ -28,10 +27,13 @@ public class Compass implements SensorEventListener {
     private float[] R = new float[9];
     private float[] I = new float[9];
 
+
     private float azimuth;
     private float azimuthFix;
+    Location location;
 
     public Compass(Context context) {
+        location = MainActivity.currentLocation;
         sensorManager = (SensorManager) context
                 .getSystemService(Context.SENSOR_SERVICE);
         gsensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -121,7 +123,9 @@ public class Compass implements SensorEventListener {
             String[] positionn =  CompassActivity.currentPosition.split(",");
             double latitudee = Double.parseDouble(positionn[0]);
             double longitudee = Double.parseDouble(positionn[1]);*/
-                azimuth -= bearing(-22.9595769,-43.2013255,-22.959725, -43.201079);
+
+            azimuth -= bearing(-22.9595769,-43.2013255,location.getLatitude(), location.getLongitude());
+
                 //}
 
                 //Log.d(TAG, "azimuth (deg): " + azimuth);

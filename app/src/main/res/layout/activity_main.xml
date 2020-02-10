@@ -13,6 +13,7 @@
         android:backgroundTint="@color/colorAccent"
         android:fontFamily="sans-serif-condensed-medium"
         android:text="@string/start"
+        android:textColor="@color/common_google_signin_btn_text_dark_default"
         android:textSize="36sp"
         android:typeface="normal"
         app:layout_constraintBottom_toBottomOf="parent"
