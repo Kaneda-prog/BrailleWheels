@@ -17,6 +17,7 @@ import android.os.Bundle;
 
 import android.provider.Settings;
 import android.speech.RecognizerIntent;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.View.OnClickListener;
 import android.view.View;
@@ -54,7 +55,7 @@ import java.util.List;
 import java.util.Locale;
 
 
-public class MainActivity extends AppCompatActivity implements OnClickListener {
+public class MainActivity extends AppCompatActivity implements OnClickListener, TextToSpeech.OnInitListener {
     private String TAG = MainActivity.class.getSimpleName();
     public String voice;
     public String latLng;
@@ -83,6 +84,8 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
     JSONObject leObject;
     ArrayList<HashMap<String, String>> contactList;
     Locale locale = new Locale("pt", "BR");
+    public TextToSpeech tts;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -102,8 +105,24 @@ public class MainActivity extends AppCompatActivity implements OnClickListener {
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
         //Routes list overview
+        tts =new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if (status == TextToSpeech.SUCCESS) {
+                    int result = tts.setLanguage(Locale.forLanguageTag("pt"));
+                    if (result == TextToSpeech.LANG_MISSING_DATA
+                            || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        Log.e("error", "This Language is not supported");
+                    } else {
+                        tts.speak("Olá! Bem vindo ao S.I.M, o sistema inteligente de mobilidade! Clique no botão começar em baixo da tela!", TextToSpeech.QUEUE_FLUSH, null);
 
-        myList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                    }
+                } else {
+                    Log.e("error", "Initilization Failed!");
+                }
+            }
+        });
+         myList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent in = new Intent(getApplicationContext(), CompassActivity.class);
@@ -168,6 +187,7 @@ public void text()
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
             return;
         }
+
         Task<Location> task = fusedLocationProviderClient.getLastLocation();
         task.addOnSuccessListener(new OnSuccessListener<Location>() {
             @Override
@@ -175,6 +195,7 @@ public void text()
                 if (location != null) {
                     currentLocation = location;
                     latLng = currentLocation.getLatitude() +"," +currentLocation.getLongitude();
+
                 }
             }
 
@@ -184,9 +205,7 @@ public void text()
     public void onClick(View v) {
         if (v == myButton) {
             fetchLastLocation();
-            Intent on = new Intent(this,CompassActivity.class);
-            startActivity(on);
-                //startVoiceRecognizitionActivity();
+            startVoiceRecognizitionActivity();
 //voice = "Maracana";
             //new GetContacts().execute();
         }
@@ -214,8 +233,16 @@ public void text()
             voice.replaceAll("","+");
             voice.replaceAll("-","+");
             Log.i(TAG, "You said " + voice);
+            Intent on = new Intent(this,CompassActivity.class);
+            on.putExtra("bubus", voice);
+            startActivity(on);
             new GetContacts().execute();
         }
+    }
+
+    @Override
+    public void onInit(int status) {
+
     }
 
 

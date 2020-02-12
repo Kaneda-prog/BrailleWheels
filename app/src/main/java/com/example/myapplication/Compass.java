@@ -29,9 +29,9 @@ Object lock;
 
 
     private float azimuth;
-    private float azimuthFix;
     Location location;
 
+    private float azimuthFix;
     public Compass(Context context) {
         location = MainActivity.currentLocation;
         sensorManager = (SensorManager) context

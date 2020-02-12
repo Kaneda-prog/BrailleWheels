@@ -2,16 +2,23 @@ package com.example.myapplication;
 
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.hardware.Sensor;
 import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
-import android.media.MediaPlayer;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
@@ -38,6 +45,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.Arrays;
+import java.util.Locale;
 
 import static android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO;
 import static com.example.myapplication.MainActivity.currentLocation;
@@ -46,15 +54,42 @@ import static java.lang.StrictMath.cos;
 import static java.lang.StrictMath.sin;
 
 
-public class CompassActivity  extends AppCompatActivity implements View.OnClickListener {
+public class CompassActivity  extends AppCompatActivity implements View.OnClickListener, SensorEventListener, TextToSpeech.OnInitListener {
+
+    private static final String TAG = "Compass";
+    private Location location;
+
+    @Override
+    public void onInit(int status) {
+
+    }
+
+    public interface CompassListener {
+        void onNewAzimuth(float azimuth);
+    }
+
+    private Compass.CompassListener listener;
+
+    private SensorManager sensorManager;
+    private Sensor gsensor;
+    private Sensor msensor;
+    Object lock;
+    private float[] mGravity = new float[3];
+    private float[] mGeomagnetic = new float[3];
+    private float[] RI = new float[9];
+    private float[] I = new float[9];
+
+
+
+
 
     static Location currentlocation;
     Location jediBus;
     FusedLocationProviderClient fusedLocationProviderClient;
-
+public TextToSpeech tts;
     private static final int REQUEST_CODE = 1011;
-    private static final String TAG = "CompassActivity";
-
+    private float azimuth;
+    private float azimuthFix;
     private Compass compass;
     private TextView sotwLabel;  // SOTW is for "side of the world"
     Vibrator v;
@@ -68,7 +103,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private TextView busId;
     String distancee;
     String busNumber;
-    int linha = 112;
+    String linha = "133";
     //-22.917386,-43.250297
     static public String currentPosition = "-22.92715, -43.25187";
     String busLocation;
@@ -89,7 +124,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     static public String nowLocation;
     private int veclopis;
     private float lastDistance;
-    private float distance;
+    public int distance;
     public Location checkProximity;
     public boolean busClose;
     private int ii;
@@ -104,8 +139,6 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private double sideDist;
     private boolean way;
     private ImageView arrowView;
-    final Object lock = new Object();
-
     @Override
 
 
@@ -115,15 +148,17 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
         //Location
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
+        Intent intent = getIntent();
+        linha = intent.getStringExtra("bubus");
                     //VIEWS
         //Aboard Bus button
         checkBus = findViewById(R.id.atBus);
-        checkBus.setText("Aboard the bus? Click here!");
         checkBus.setOnClickListener(this);
         checkBus.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
         //Images
         arrowView = findViewById(R.id.img_compass);
         //Text
+        tts = new TextToSpeech(this,this);
         dist = findViewById(R.id.distance);
         atStop = findViewById(R.id.busAtStop);
         duration = findViewById(R.id.duration);
@@ -132,30 +167,32 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
         sotwLabel = findViewById(R.id.txt_azimuth);
         //Vibrator Service
         v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-
         //Well, sotwFormatter
         sotwFormatter = new SOTW(this);
-
-
+        location = MainActivity.currentLocation;
+        sensorManager = (SensorManager) getApplicationContext()
+                .getSystemService(Context.SENSOR_SERVICE);
+        gsensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        msensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         //Stuff to be executed
         new Warming().execute();
-        setupCompass();
+        start();
 
     }
-
     public void onClick(View v) {
         if (v == checkBus) {
             if (busAtStop) {
                 aboardBus = true;
-                Toast.makeText(this, "You are aboard the bus.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Você está no ônibus.", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "You are schizophrenic. There's no bus.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "você possui esquizofrenia. não há nenhum ônibus.", Toast.LENGTH_SHORT).show();
 
             }
         }
     }
 
     private void fetchLastLocation() {
+
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
             return;
@@ -177,29 +214,6 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             }
 
         });
-    }
-    @Override
-    protected void onStart() {
-        super.onStart();
-        fetchLastLocation();
-        Log.d(TAG, "start compass");
-        compass.start();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        compass.stop();
-
-    }
-
-    @Override
-    protected void onStop() {
-
-        super.onStop();
-        Log.d(TAG, "stop compass");
-        compass.stop();
-
     }
 
     private void setupCompass() {
@@ -275,8 +289,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                 handler.postDelayed(runnable2, delay);
             }
         }, delay);
-
-        compass.start();
+        start();
         super.onResume();
     }
 
@@ -287,9 +300,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-            MediaPlayer mp = MediaPlayer.create(getApplicationContext(), R.raw.combo);
-            mp.setVolume(0.08f, 0.08f);
-            mp.start();
+
             // Showing progress dialog
             pd = new ProgressDialog(CompassActivity.this);
             pd.setCancelable(false);
@@ -371,7 +382,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                     checkProximity.setLatitude(latitudes[index]);
                     checkProximity.setLongitude(longitudes[index]);
                     //Bus distance to user
-                    distance = checkProximity.distanceTo(currentLocation);
+                    distance = (int)checkProximity.distanceTo(currentLocation);
                     nowLocation = latitudes[index] + "," + longitudes[index];
                     Log.i(TAG, "Bus location at warming: " + checkProximity + "Stop location at warming: " + currentPosition);
 
@@ -412,29 +423,33 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             if (pd.isShowing())
                 pd.dismiss();
             //setupCompass();
-            float dis = Math.round(currentLocation.distanceTo(checkProximity));
+            int dis = Math.round(currentLocation.distanceTo(checkProximity));
             if (dis < 50.0f) {
                 busClose = true;
                 if (dis < 15.0f) {
                     if (veclopis != 0) {
-                        Toast.makeText(getApplicationContext(), "Wait for the bus to stop", Toast.LENGTH_SHORT).show();
+                        atStop.setText(getString(R.string.busNo ));
+                        Toast.makeText(getApplicationContext(), "Espere o ônibus parar", Toast.LENGTH_SHORT).show();
                     }
                     if(veclopis == 0) {
+                        atStop.setText(getString(R.string.busYes ));
+                        tts.setLanguage(Locale.forLanguageTag("pt"));
+                        tts.speak(getString(R.string.busYes),TextToSpeech.QUEUE_ADD, null);
                         busAtStop = true;
-                        Toast.makeText(getApplicationContext(), "The bus has stopped. Follow the next directions to get in!", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "Seu ônibus parou. Siga as próximas instruções!", Toast.LENGTH_SHORT).show();
                     }
                 }
                 else{
-                    Toast.makeText(getApplicationContext(), "There's one bus close to you. It's time to call " + busNumber, Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), "Há um ônibus perto. Sinalize para o " + busNumber, Toast.LENGTH_SHORT).show();
                 }
             }
-
+            tts.setLanguage(Locale.forLanguageTag("pt"));
+            tts.speak(getString(R.string.onibus)+ dis + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
+            tts.speak(getString(R.string.ui) + veclopis + getString(R.string.speed ),TextToSpeech.QUEUE_ADD, null);
+Log.i(TAG,"hello hello i am a message");
             busId.setText(busNumber);
-            atStop.setText("Bus at stop: "+ busAtStop);
-            velocity.setText("Speed:" + veclopis + " km.");
-            dist.setText("Closest bus at " + dis + " meters.");
-            SensorEvent obj = new SensorEvent();
-            compass.onSensorChanged(obj);
+            velocity.setText(veclopis + getString(R.string.speed ));
+            dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
 setupCompass();
             //new busDriving().execute();
         }
@@ -451,13 +466,13 @@ public void Instructions( double azimuth) {
     if(latitude > 0 && !way) {
         atLeft = true;
         turn = abs((180f - azimuth));
-       Toast.makeText(getApplicationContext(), "Turn left " + Math.round(turn) + " degrees.You need to walk " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
+       Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
 
     }
     else if(latitude < 0&& !way){
         atLeft = false;
         turn = abs(180 - azimuth);
-       Toast.makeText(getApplicationContext(), "Turn right " + Math.round(turn) + " degrees.You need to walk " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
+       Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
 
     }
 
@@ -659,4 +674,133 @@ public void Instructions( double azimuth) {
 
         }
     }
+
+
+    protected double bearing(double startLat, double startLng, double endLat, double endLng){
+        double longitude1 = startLng;
+        double longitude2 = endLng;
+        double latitude1 = Math.toRadians(startLat);
+        double latitude2 = Math.toRadians(endLat);
+        double longDiff= Math.toRadians(longitude2-longitude1);
+        double y= Math.sin(longDiff)*Math.cos(latitude2);
+        double x=Math.cos(latitude1)*Math.sin(latitude2)-Math.sin(latitude1)*Math.cos(latitude2)*Math.cos(longDiff);
+
+        return (Math.toDegrees(Math.atan2(y, x))+360)%360;
+    }
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        final float alpha = 0.97f;
+
+        synchronized (this) {
+            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+
+                mGravity[0] = alpha * mGravity[0] + (1 - alpha)
+                        * event.values[0];
+                mGravity[1] = alpha * mGravity[1] + (1 - alpha)
+                        * event.values[1];
+                mGravity[2] = alpha * mGravity[2] + (1 - alpha)
+                        * event.values[2];
+
+                // mGravity = event.values;
+
+                // Log.e(TAG, Float.toString(mGravity[0]));
+            }
+
+            if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                // mGeomagnetic = event.values;
+
+                mGeomagnetic[0] = alpha * mGeomagnetic[0] + (1 - alpha)
+                        * event.values[0];
+                mGeomagnetic[1] = alpha * mGeomagnetic[1] + (1 - alpha)
+                        * event.values[1];
+                mGeomagnetic[2] = alpha * mGeomagnetic[2] + (1 - alpha)
+                        * event.values[2];
+                // Log.e(TAG, Float.toString(event.values[0]));
+
+            }
+
+            float R[] = new float[9];
+            float I[] = new float[9];
+            boolean success = SensorManager.getRotationMatrix(R, I, mGravity,
+                    mGeomagnetic);
+            if (success) {
+                float orientation[] = new float[3];
+                SensorManager.getOrientation(R, orientation);
+                // Log.d(TAG, "azimuth (rad): " + azimuth);
+                azimuth = (float) Math.toDegrees(orientation[0]); // orientation
+                //Log.i(TAG, "oh " + azimuth);
+                azimuth = (azimuth + 360) % 360;
+        /*if(CompassActivity.nowLocation != null){
+                String[] position =  CompassActivity.nowLocation.split(",");
+            double latitude = Double.parseDouble(position[0]);
+            double longitude = Double.parseDouble(position[1]);
+            String[] positionn =  CompassActivity.currentPosition.split(",");
+            double latitudee = Double.parseDouble(positionn[0]);
+            double longitudee = Double.parseDouble(positionn[1]);*/
+
+
+                if(checkProximity== null)
+                {
+                    azimuth -= bearing(-22.9595769,-43.2013255, location.getLatitude(), location.getLongitude());
+                }
+                else{
+                    azimuth -= bearing(checkProximity.getLatitude(),checkProximity.getLongitude(),location.getLatitude(), location.getLongitude());
+
+                }
+                sotwLabel.setText(sotwFormatter.format(azimuth));
+                Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
+                        Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
+                        0.5f);
+                currentAzimuth = azimuth;
+
+                an.setDuration(210);
+                an.setRepeatCount(0);
+                arrowView.startAnimation(an);
+                //}
+
+                //Log.d(TAG, "azimuth (deg): " + azimuth);
+
+                if (listener != null) {
+                    listener.onNewAzimuth(azimuth);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int i) {
+
+    }
+
+    public void start() {
+        sensorManager.registerListener(this, gsensor,
+                SensorManager.SENSOR_DELAY_GAME);
+        sensorManager.registerListener(this, msensor,
+                SensorManager.SENSOR_DELAY_GAME);
+    }
+
+    public void noSensorsAlert(){
+        AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
+        alertDialog.setMessage("Your device doesn't support the Compass.")
+                .setCancelable(false)
+                .setNegativeButton("Close",new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int id) {
+                        finish();
+                    }
+                });
+        alertDialog.show();
+    }
+
+    public void stop() {
+        sensorManager.unregisterListener(this);
+    }
+
+    public void setAzimuthFix(float fix) {
+        azimuthFix = fix;
+    }
+
+    public void resetAzimuthFix() {
+        setAzimuthFix(0);
+    }
+
 }
