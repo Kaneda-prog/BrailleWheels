@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Smart Tiles</string>
+    <string name="app_name">S.I.M</string>
     <string name="title_activity_maps">Map</string>
     <string name="sd">Say your destination</string>
     <string name="start">Start</string>

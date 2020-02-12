@@ -85,8 +85,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             askPermission();
         }
 
-        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
-        myButton = findViewById(R.id.sd);
+         myButton = findViewById(R.id.sd);
         myButton.setOnClickListener(this);
         //Voice recognizer initialize
         voiceInputButtons();

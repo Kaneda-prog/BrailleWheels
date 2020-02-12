@@ -21,7 +21,7 @@ public class Compass implements SensorEventListener {
     private SensorManager sensorManager;
     private Sensor gsensor;
     private Sensor msensor;
-
+Object lock;
     private float[] mGravity = new float[3];
     private float[] mGeomagnetic = new float[3];
     private float[] R = new float[9];
@@ -124,7 +124,19 @@ public class Compass implements SensorEventListener {
             double latitudee = Double.parseDouble(positionn[0]);
             double longitudee = Double.parseDouble(positionn[1]);*/
 
-            azimuth -= bearing(-22.9595769,-43.2013255,location.getLatitude(), location.getLongitude());
+CompassActivity ob = new CompassActivity();
+                Location loc = ob.checkProximity;
+if(loc == null)
+{
+    Log.i(TAG, " awwaw");
+    azimuth -= bearing(-22.9595769,-43.2013255,location.getLatitude(), location.getLongitude());
+}
+else{
+    Log.i(TAG, " COOL A LOC");
+    azimuth -= bearing(loc.getLatitude(),loc.getLongitude(),location.getLatitude(), location.getLongitude());
+
+}
+                Log.i(TAG, " Ah" + loc);
 
                 //}
 

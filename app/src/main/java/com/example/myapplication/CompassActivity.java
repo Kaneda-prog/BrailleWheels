@@ -5,13 +5,16 @@ import android.Manifest;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.hardware.SensorEvent;
 import android.location.Location;
+import android.media.MediaPlayer;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
 import android.util.Log;
 import android.view.View;
+import android.view.accessibility.AccessibilityEvent;
 import android.view.animation.Animation;
 import android.view.animation.RotateAnimation;
 import android.widget.Button;
@@ -36,6 +39,7 @@ import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.util.Arrays;
 
+import static android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO;
 import static com.example.myapplication.MainActivity.currentLocation;
 import static java.lang.StrictMath.abs;
 import static java.lang.StrictMath.cos;
@@ -86,7 +90,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private int veclopis;
     private float lastDistance;
     private float distance;
-    private Location checkProximity;
+    public Location checkProximity;
     public boolean busClose;
     private int ii;
     private float degree;
@@ -99,9 +103,8 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private double largura;
     private double sideDist;
     private boolean way;
-    private Handler hand;
     private ImageView arrowView;
-
+    final Object lock = new Object();
 
     @Override
 
@@ -112,36 +115,41 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
         //Location
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
-        //Button
+                    //VIEWS
+        //Aboard Bus button
         checkBus = findViewById(R.id.atBus);
         checkBus.setText("Aboard the bus? Click here!");
         checkBus.setOnClickListener(this);
-
-        //Vibrator Service
-        v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
+        checkBus.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
+        //Images
         arrowView = findViewById(R.id.img_compass);
-
-        sotwFormatter = new SOTW(this);
-        //Text Views
+        //Text
         dist = findViewById(R.id.distance);
         atStop = findViewById(R.id.busAtStop);
         duration = findViewById(R.id.duration);
         busId = findViewById(R.id.busId);
         velocity = findViewById(R.id.veclopis);
         sotwLabel = findViewById(R.id.txt_azimuth);
+        //Vibrator Service
+        v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
 
+        //Well, sotwFormatter
+        sotwFormatter = new SOTW(this);
+
+
+        //Stuff to be executed
         new Warming().execute();
         setupCompass();
+
     }
 
     public void onClick(View v) {
         if (v == checkBus) {
-            if (busAtStop == true) {
+            if (busAtStop) {
                 aboardBus = true;
-                Toast.makeText(getApplicationContext(), "You are aboard the bus.", Toast.LENGTH_SHORT).show();
-
+                Toast.makeText(this, "You are aboard the bus.", Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(getApplicationContext(), "You are schizophrenic. There's no bus.", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "You are schizophrenic. There's no bus.", Toast.LENGTH_SHORT).show();
 
             }
         }
@@ -207,7 +215,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                 0.5f);
         currentAzimuth = azimuth;
 
-        an.setDuration(100);
+        an.setDuration(210);
         an.setRepeatCount(0);
         if (azimuth > -1 && azimuth < 1) {
 
@@ -219,15 +227,12 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
 
     private void adjustSotwLabel(float azimuth) {
         sotwLabel.setText(sotwFormatter.format(azimuth));
-
     }
 
     private Compass.CompassListener getCompassListener() {
         return new Compass.CompassListener() {
             @Override
             public void onNewAzimuth(final float azimuth) {
-                // UI updates only in UI thread
-                // https://stackoverflow.com/q/11140285/444966
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
@@ -244,21 +249,18 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     protected void onResume() {
         vibratorHandler.postDelayed(runnable = new Runnable() {
             public void run() {
-                //Instructions(degree);
                 if (busAtStop) {
-
                     if (currentAzimuth <-172&& currentAzimuth >-188) {
                         way = true;
                         long[] pattern = {0, 200, 200, 300};
                         v.vibrate(pattern, -1);
-
                     }
-                    if (currentAzimuth >172 && currentAzimuth <188) {
+                    else if (currentAzimuth > 172 && currentAzimuth < 188) {
                         way = true;
                         long[] pattern = {0, 200, 200, 300};
                         v.vibrate(pattern, -1);
-
                     }
+                    if(!way)
                     Instructions(currentAzimuth);
                 }
                 handler.postDelayed(runnable, delayy);
@@ -281,71 +283,79 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
 
 
     //TODO: Checking closest bus in the line
-    private class Warming extends AsyncTask<Void, Void, Void> {
+    public class Warming extends AsyncTask<Void, Void, Void> {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
+            MediaPlayer mp = MediaPlayer.create(getApplicationContext(), R.raw.combo);
+            mp.setVolume(0.08f, 0.08f);
+            mp.start();
             // Showing progress dialog
             pd = new ProgressDialog(CompassActivity.this);
-            pd.setMessage("Please wait...");
             pd.setCancelable(false);
             pd.show();
 
         }
 
+        //Check closest bus:
+        //Set it Id, velocity and distance
         @Override
+
         protected Void doInBackground(Void... arg0) {
             Http sh = new Http();
 
             // Making a request to url and getting response
             String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/" + linha + ".json");
 
-            // Log.d(TAG, "Response from url: " + jsonJedi);
             if (jsonJedi != null) {
                 try {
-                    String[] latlong = currentPosition.split(",");
-                    double currentLatitude = abs(Double.parseDouble(latlong[0]));
-                    double currentLongitude = abs(Double.parseDouble(latlong[1]));
+                    //String[] latlong = currentPosition.split(",");
+                    //double currentLatitude = abs(Double.parseDouble(latlong[0]));
+                    //double currentLongitude = abs(Double.parseDouble(latlong[1]));
 
                     JSONObject jsonObj = new JSONObject(jsonJedi.substring(jsonJedi.indexOf("{"), jsonJedi.lastIndexOf("}") + 1));
                     // Getting JSON Array node
-                    JSONArray points = jsonObj.getJSONArray("DATA");
-                    double latitudes[];
-                    latitudes = new double[points.length()];
-                    double longitudes[];
-                    longitudes = new double[points.length()];
+                        JSONArray points = jsonObj.getJSONArray("DATA");
+                        //Bus location array
+                        double latitudes[];
+                        latitudes = new double[points.length()];
+                        double longitudes[];
+                        longitudes = new double[points.length()];
+                        //Bus distance array
+                        double distanceLat[];
+                        distanceLat = new double[points.length()];
+                        double distanceLng[];
+                        distanceLng = new double[points.length()];
+                        //Sum of lat an lng distances
+                        double calculations[];
+                        calculations = new double[points.length()];
+                        //Bus id for each instance
+                        String algorithmBus[];
+                        algorithmBus = new String[points.length()];
 
-                    double distanceLat[];
-                    distanceLat = new double[points.length()];
-                    double distanceLng[];
-                    distanceLng = new double[points.length()];
-                    double calculations[];
-                    calculations = new double[points.length()];
-                    double calculations2[];
-                    calculations2 = new double[points.length()];
-                    String algorithmBus[];
-                    algorithmBus = new String[points.length()];
+                    int speed[];
+                    speed = new int[points.length()];
                     //Looping thought the buses
                     for (int i = 0; i < points.length(); i++) {
                         JSONArray bus = points.getJSONArray(i);
-                        //BusStop location
-
-
+                        //Bus location lat and lng
                         latitudes[i] = bus.getDouble(3);
                         longitudes[i] = bus.getDouble(4);
 
-
-                        distanceLat[i] = abs(abs(latitudes[i]) - currentLatitude);
-                        distanceLng[i] = abs(abs(longitudes[i]) - currentLongitude);
+                        //Bus - current Location
+                        distanceLat[i] = abs(abs(latitudes[i]) - abs(currentLocation.getLatitude()));
+                        distanceLng[i] = abs(abs(longitudes[i]) - abs(currentLocation.getLongitude()));
+                       //Sum of lat and lng
                         calculations[i] = distanceLat[i] + distanceLng[i];
-                        calculations2[i] = distanceLat[i] + distanceLng[i];
+                        //Bus id for each instance
                         algorithmBus[i] = bus.getString(1);
 
+                        //Bus Location
                         checkProximity = new Location("abc");
                         checkProximity.setLatitude(latitudes[i]);
                         checkProximity.setLongitude(longitudes[i]);
-                        veclopis = bus.getInt(5);
-                        distance = checkProximity.distanceTo(currentLocation);
+                        //Bus speed
+                       speed[i] = bus.getInt(5);
 
 
                     }
@@ -353,14 +363,18 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                     for (int i = 0; i < calculations.length; i++) {
                         if (calculations[i] == great) {
                             index = i;
-                            busNumber = algorithmBus[i];
+                            busNumber = algorithmBus[index];
+                            veclopis = speed[index];
+
                         }
                     }
-
-                    nowLocation = latitudes[index] + "," + longitudes[index];
-                    Log.i(TAG, "Bus location at warming: " + nowLocation + "Stop location at warming: " + currentPosition);
                     checkProximity.setLatitude(latitudes[index]);
                     checkProximity.setLongitude(longitudes[index]);
+                    //Bus distance to user
+                    distance = checkProximity.distanceTo(currentLocation);
+                    nowLocation = latitudes[index] + "," + longitudes[index];
+                    Log.i(TAG, "Bus location at warming: " + checkProximity + "Stop location at warming: " + currentPosition);
+
                 } catch (final JSONException e) {
                     Log.e(TAG, "Json parsing error: " + e.getMessage());
                     runOnUiThread(new Runnable() {
@@ -397,42 +411,34 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             // Dismiss the progress dialog
             if (pd.isShowing())
                 pd.dismiss();
-            setupCompass();
-            if (currentLocation.distanceTo(checkProximity) < 5000.0f) {
+            //setupCompass();
+            float dis = Math.round(currentLocation.distanceTo(checkProximity));
+            if (dis < 50.0f) {
                 busClose = true;
-                Log.i(TAG, " FINALLY A BUS IS CLOSE!!!!");
-                if(currentLocation.distanceTo(checkProximity) >20.0f) {
-                    Toast.makeText(getApplicationContext(), "There's one bus close to you. It's time to call " + busNumber, Toast.LENGTH_SHORT).show();
-                }
-                if (currentLocation.distanceTo(checkProximity) < 1500.0f) {
-                    if (veclopis != 0){
+                if (dis < 15.0f) {
+                    if (veclopis != 0) {
                         Toast.makeText(getApplicationContext(), "Wait for the bus to stop", Toast.LENGTH_SHORT).show();
+                    }
+                    if(veclopis == 0) {
+                        busAtStop = true;
+                        Toast.makeText(getApplicationContext(), "The bus has stopped. Follow the next directions to get in!", Toast.LENGTH_SHORT).show();
+                    }
                 }
-if(veclopis == 0) {
-            Toast.makeText(getApplicationContext(), "The bus has stopped. Follow the next directions to get in!", Toast.LENGTH_SHORT).show();
-            busAtStop = true;
-}
+                else{
+                    Toast.makeText(getApplicationContext(), "There's one bus close to you. It's time to call " + busNumber, Toast.LENGTH_SHORT).show();
                 }
             }
 
             busId.setText(busNumber);
             atStop.setText("Bus at stop: "+ busAtStop);
             velocity.setText("Speed:" + veclopis + " km.");
-            Log.i(TAG, "DISTANCE: " +currentLocation.distanceTo(checkProximity));
-            dist.setText("Closest bus at " + Math.round(currentLocation.distanceTo(checkProximity)) + " meters.");
-
-
-            new busDriving().execute();
+            dist.setText("Closest bus at " + dis + " meters.");
+            SensorEvent obj = new SensorEvent();
+            compass.onSensorChanged(obj);
+setupCompass();
+            //new busDriving().execute();
         }
     }
-    final Runnable run  = new Runnable() {
-        @Override
-        public void run() {
-            {
-                Log.i(TAG, " Runned");
-            }
-        }
-    };
 public void Instructions( double azimuth) {
     Location start = new Location("loc");
     start.setLatitude(checkProximity.getLatitude());
@@ -441,37 +447,23 @@ public void Instructions( double azimuth) {
     fetchLastLocation();
     end.setLatitude(currentLocation.getLatitude());
     end.setLongitude(currentLocation.getLongitude());
-    //end.setLatitude(-22.95969);
-    //end.setLongitude(-43.20129);
     double latitude = abs(end.getLongitude()) - abs(start.getLongitude());
-
-    duration.setText("distanceTo:" + Math.round(hipDist));
     if(latitude > 0 && !way) {
         atLeft = true;
-        if(!way) {
-        turn = (180f - azimuth);
+        turn = abs((180f - azimuth));
        Toast.makeText(getApplicationContext(), "Turn left " + Math.round(turn) + " degrees.You need to walk " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
-    }
+
     }
     else if(latitude < 0&& !way){
         atLeft = false;
-        if(way == false){
-
         turn = abs(180 - azimuth);
        Toast.makeText(getApplicationContext(), "Turn right " + Math.round(turn) + " degrees.You need to walk " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
-    }
+
     }
 
 
 
 }
-    public static double round(double value, int places) {
-        if (places < 0) throw new IllegalArgumentException();
-
-        BigDecimal bd = BigDecimal.valueOf(value);
-        bd = bd.setScale(places, RoundingMode.HALF_UP);
-        return bd.doubleValue();
-    }
 //TODO: Updating bus location
     private class GPS extends AsyncTask<Void, Void, Void> {
         @Override

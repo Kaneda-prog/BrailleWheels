@@ -27,7 +27,9 @@
         android:theme="@style/AppTheme">
         <activity
             android:name=".CompassActivity"
-            android:label="@string/title_activity_compass"></activity>
+            android:configChanges="orientation"
+            android:screenOrientation="portrait"
+            android:label=""></activity>
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
@@ -47,12 +49,16 @@
 
 
 
-        <activity android:name=".MainActivity">
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation"
+            android:screenOrientation="portrait">
             <intent-filter>
             <action android:name="android.intent.action.MAIN" />
 
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+
         </activity>
         <service
         android:name=".FloatingOverMapIconService"/>
