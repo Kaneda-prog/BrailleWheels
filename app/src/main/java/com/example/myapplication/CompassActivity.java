@@ -58,6 +58,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
 
     private static final String TAG = "Compass";
     private Location location;
+    private int dis;
 
     @Override
     public void onInit(int status) {
@@ -160,7 +161,6 @@ public TextToSpeech tts;
         //Text
         tts = new TextToSpeech(this,this);
         dist = findViewById(R.id.distance);
-        atStop = findViewById(R.id.busAtStop);
         duration = findViewById(R.id.duration);
         busId = findViewById(R.id.busId);
         velocity = findViewById(R.id.veclopis);
@@ -423,25 +423,31 @@ public TextToSpeech tts;
             if (pd.isShowing())
                 pd.dismiss();
             //setupCompass();
-            int dis = Math.round(currentLocation.distanceTo(checkProximity));
+            dis = Math.round(currentLocation.distanceTo(checkProximity));
             if (dis < 50.0f) {
                 busClose = true;
                 if (dis < 15.0f) {
                     if (veclopis != 0) {
-                        atStop.setText(getString(R.string.busNo ));
-                        Toast.makeText(getApplicationContext(), "Espere o ônibus parar", Toast.LENGTH_SHORT).show();
+                       tts.speak("Espere o ônibus parar",TextToSpeech.QUEUE_ADD, null);
+
                     }
-                    if(veclopis == 0) {
-                        atStop.setText(getString(R.string.busYes ));
-                        tts.setLanguage(Locale.forLanguageTag("pt"));
-                        tts.speak(getString(R.string.busYes),TextToSpeech.QUEUE_ADD, null);
+                    if(veclopis == 0 && !way) {
+                       tts.setLanguage(Locale.forLanguageTag("pt"));
                         busAtStop = true;
-                        Toast.makeText(getApplicationContext(), "Seu ônibus parou. Siga as próximas instruções!", Toast.LENGTH_SHORT).show();
+                        tts.setLanguage(Locale.forLanguageTag("pt"));
+                        tts.speak("Seu ônibus parou. Siga as próximas instruções!",TextToSpeech.QUEUE_ADD, null);
+
+                    }
+                    if(dis < 2)
+                    {
+                        aboardBus = true;
                     }
                 }
                 else{
-                    Toast.makeText(getApplicationContext(), "Há um ônibus perto. Sinalize para o " + busNumber, Toast.LENGTH_SHORT).show();
-                }
+                    tts.setLanguage(Locale.forLanguageTag("pt"));
+                    tts.speak("Há um ônibus perto. Sinalize para o " + busNumber,TextToSpeech.QUEUE_ADD, null);
+
+                     }
             }
             tts.setLanguage(Locale.forLanguageTag("pt"));
             tts.speak(getString(R.string.onibus)+ dis + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
@@ -451,7 +457,7 @@ Log.i(TAG,"hello hello i am a message");
             velocity.setText(veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
 setupCompass();
-            //new busDriving().execute();
+new busDriving().execute();
         }
     }
 public void Instructions( double azimuth) {
@@ -480,113 +486,6 @@ public void Instructions( double azimuth) {
 
 }
 //TODO: Updating bus location
-    private class GPS extends AsyncTask<Void, Void, Void> {
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            // Showing progress dialog
-            pd = new ProgressDialog(CompassActivity.this);
-            pd.setMessage("Please wait...");
-            pd.setCancelable(false);
-            pd.show();
-
-        }
-
-        @Override
-        protected Void doInBackground(Void... arg0) {
-            Http sh = new Http();
-
-            // Making a request to url and getting response
-
-            String jsonStr = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/" + busNumber + ".json");
-//COLLUMS
-// 0"DATAHORA","
-// 1ORDEM",
-// 2"LINHA",
-// 3"LATITUDE",
-// 4"LONGITUDE",
-// 5"VELOCIDADE",
-//6"DIRECAO"
-
-            // Log.d(TAG, "Response from url: " + jsonStr);
-            if (jsonStr != null) {
-                try {
-                    JSONObject jsonObj = new JSONObject(jsonStr.substring(jsonStr.indexOf("{"), jsonStr.lastIndexOf("}") + 1));
-                    // Getting JSON Array node
-                    JSONArray points = jsonObj.getJSONArray("DATA");
-                    JSONArray times = points.getJSONArray(0);
-                    String curBus = times.getString(1);
-                    Log.i(TAG, "The bus is " + curBus);
-                    String time = times.getString(0);
-                    String latitude = times.getString(3);
-                    String longitude = times.getString(4);
-                    String velocidade = times.getString(5);
-                    busLocation = latitude + "," + longitude;
-                    Log.i(TAG, time + "Last location is at " + busLocation + " at speed " + velocidade);
-
-
-                } catch (final JSONException e) {
-                    Log.e(TAG, "Json parsing error: " + e.getMessage());
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Toast.makeText(getApplicationContext(),
-                                    "Json parsing error: " + e.getMessage(),
-                                    Toast.LENGTH_LONG)
-                                    .show();
-                        }
-                    });
-
-                }
-            } else {
-                Log.e(TAG, "Couldn't get json from server.");
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(getApplicationContext(),
-                                "Couldn't get json from server. Check LogCat for possible errors!",
-                                Toast.LENGTH_LONG)
-                                .show();
-                    }
-                });
-
-            }
-
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void result) {
-            super.onPostExecute(result);
-            // Dismiss the progress dialog
-            if (pd.isShowing())
-                pd.dismiss();
-            //BusLocation
-            String[] position = busLocation.split(",");
-            double latitude = Double.parseDouble(position[0]);
-            double longitude = Double.parseDouble(position[1]);
-            jediBus = new Location("Aa");
-            jediBus.setLatitude(latitude);
-            jediBus.setLongitude(longitude);
-            //StopLocation
-            String[] latlong = currentPosition.split(",");
-            double llatitude = Double.parseDouble(latlong[0]);
-            double llongitude = Double.parseDouble(latlong[1]);
-            Location busStop = new Location("Bb");
-            busStop.setLatitude(llatitude);
-            busStop.setLongitude(llongitude);
-            //Getting the distance
-            float distance = busStop.distanceTo(jediBus);//To convert Meter in Kilometer
-            NumberFormat nf = NumberFormat.getNumberInstance();
-            nf.setMaximumFractionDigits(0);
-            distancee = nf.format(distance);
-            dist.setText("The bus is " + distancee + " meters away.");
-            Log.i(TAG, "Distance:" + distance);
-            busId.setText(busNumber);
-            lastDistance = busStop.distanceTo(jediBus);
-        }
-
-    }
     private class busDriving extends AsyncTask<Void, Void, Void> {
         @Override
         protected void onPreExecute() {
@@ -668,9 +567,12 @@ public void Instructions( double azimuth) {
             // Dismiss the progress dialog
             if (pd.isShowing())
                 pd.dismiss();
-            Log.i(TAG, "Duration is " + value);
-            dist.setText("Closest bus at " + Math.round(currentLocation.distanceTo(checkProximity)) + " meters, real value of " + distValue);
-            duration.setText("Your bus will arive in " + value + ".");
+            Log.i(TAG, "Tempo de chegada: " + value);
+           duration.setText("Tempo de chegada: " + value + ".");
+            tts.setLanguage(Locale.forLanguageTag("pt"));
+            tts.speak("Tempo de chegada: " + value,TextToSpeech.QUEUE_ADD, null);
+
+
 
         }
     }
