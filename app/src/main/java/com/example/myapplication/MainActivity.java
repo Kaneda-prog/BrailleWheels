@@ -102,8 +102,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
         //view = findViewById(R.id.web);
         contactList = new ArrayList<>();
         //Locations utils
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-        fetchLastLocation();
+
         //Routes list overview
         tts =new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
@@ -169,19 +168,9 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
             myButton.setText("Recognizer not present");
 
         }
-
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+        fetchLastLocation();
     }
-    private void askPermission() {
-        if (!Settings.canDrawOverlays(getApplicationContext())) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION ,Uri.parse("package:" + getPackageName()));
-            startActivityForResult(intent, 0);
-        }
-    }
-public void text()
-{
-
-    Toast.makeText(this, BUS_NUMBER, Toast.LENGTH_LONG).show();
-}
     private void fetchLastLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
@@ -201,10 +190,25 @@ public void text()
 
         });
     }
+    private void askPermission() {
+        if (!Settings.canDrawOverlays(getApplicationContext())) {
+            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION ,Uri.parse("package:" + getPackageName()));
+            startActivityForResult(intent, 0);
+        }
+    }
+public void text()
+{
+
+    Toast.makeText(this, BUS_NUMBER, Toast.LENGTH_LONG).show();
+}
+
 
     public void onClick(View v) {
         if (v == myButton) {
             fetchLastLocation();
+            Intent on = new Intent(this,CompassActivity.class);
+           // on.putExtra("bubus", voice);
+            startActivity(on);
             startVoiceRecognizitionActivity();
 //voice = "Maracana";
             //new GetContacts().execute();

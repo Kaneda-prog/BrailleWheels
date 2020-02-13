@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Configuration;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -41,17 +40,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.Locale;
 
-import static android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO;
-import static com.example.myapplication.MainActivity.currentLocation;
 import static java.lang.StrictMath.abs;
-import static java.lang.StrictMath.cos;
-import static java.lang.StrictMath.sin;
 
 
 public class CompassActivity  extends AppCompatActivity implements View.OnClickListener, SensorEventListener, TextToSpeech.OnInitListener {
@@ -59,17 +51,25 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private static final String TAG = "Compass";
     private Location location;
     private int dis;
+    public double mag;
 
     @Override
     public void onInit(int status) {
 
     }
 
-    public interface CompassListener {
-        void onNewAzimuth(float azimuth);
-    }
-
-    private Compass.CompassListener listener;
+    ImageView compass_img;
+    TextView txt_compass;
+    double mAzimuth;
+    private SensorManager mSensorManager;
+    private Sensor mRotationV, mAccelerometer, mMagnetometer;
+    boolean haveSensor = false, haveSensor2 = false;
+    float[] rMat = new float[9];
+    float[] orientation = new float[3];
+    private float[] mLastAccelerometer = new float[3];
+    private float[] mLastMagnetometer = new float[3];
+    private boolean mLastAccelerometerSet = false;
+    private boolean mLastMagnetometerSet = false;
 
     private SensorManager sensorManager;
     private Sensor gsensor;
@@ -139,6 +139,7 @@ public TextToSpeech tts;
     private double largura;
     private double sideDist;
     private boolean way;
+    public Location pPosition;
     private ImageView arrowView;
     @Override
 
@@ -150,7 +151,7 @@ public TextToSpeech tts;
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
         Intent intent = getIntent();
-        linha = intent.getStringExtra("bubus");
+        //linha = intent.getStringExtra("bubus");
                     //VIEWS
         //Aboard Bus button
         checkBus = findViewById(R.id.atBus);
@@ -170,14 +171,29 @@ public TextToSpeech tts;
         //Well, sotwFormatter
         sotwFormatter = new SOTW(this);
         location = MainActivity.currentLocation;
-        sensorManager = (SensorManager) getApplicationContext()
-                .getSystemService(Context.SENSOR_SERVICE);
-        gsensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        msensor = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
         //Stuff to be executed
-        new Warming().execute();
-        start();
 
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        compass_img = findViewById(R.id.img_compass);
+        txt_compass = findViewById(R.id.txt_azimuth);
+    }
+    private void fetchLastLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
+            return;
+        }
+
+        Task<Location> task = fusedLocationProviderClient.getLastLocation();
+        task.addOnSuccessListener(new OnSuccessListener<Location>() {
+            @Override
+            public void onSuccess(Location location) {
+                if (location != null) {
+                    pPosition = location;
+                    new Warming().execute();
+                }
+            }
+
+        });
     }
     public void onClick(View v) {
         if (v == checkBus) {
@@ -191,37 +207,8 @@ public TextToSpeech tts;
         }
     }
 
-    private void fetchLastLocation() {
 
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
-            return;
-        }
-        Task<Location> task = fusedLocationProviderClient.getLastLocation();
-        task.addOnSuccessListener(new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {
-                if (location != null) {
-                    currentlocation = location;
-                    //Intent intent = getIntent();
-                    // String position = intent.getStringExtra("firstStop");
-                    //String[] latlong =  position.split(",");
-                    // double latitude = Double.parseDouble(latlong[0]);
-                    // double longitude = Double.parseDouble(latlong[1]);
-                    //LatLng latLng = new LatLng(latitude, longitude);
 
-                }
-            }
-
-        });
-    }
-
-    private void setupCompass() {
-        compass = new Compass(this);
-        Compass.CompassListener cl = getCompassListener();
-        compass.setListener(cl);
-
-    }
 
     private void adjustArrow(float azimuth) {
         Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
@@ -243,39 +230,20 @@ public TextToSpeech tts;
         sotwLabel.setText(sotwFormatter.format(azimuth));
     }
 
-    private Compass.CompassListener getCompassListener() {
-        return new Compass.CompassListener() {
-            @Override
-            public void onNewAzimuth(final float azimuth) {
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        adjustArrow(azimuth);
-                        adjustSotwLabel(azimuth);
-                    }
-                });
-
-            }
-        };
-    }
-
     @Override
     protected void onResume() {
         vibratorHandler.postDelayed(runnable = new Runnable() {
             public void run() {
                 if (busAtStop) {
-                    if (currentAzimuth <-172&& currentAzimuth >-188) {
+                    if (mAzimuth < 15 || mAzimuth > 355) {
                         way = true;
+                        double power = mAzimuth *-1.5;
+                        fetchLastLocation();
                         long[] pattern = {0, 200, 200, 300};
-                        v.vibrate(pattern, -1);
-                    }
-                    else if (currentAzimuth > 172 && currentAzimuth < 188) {
-                        way = true;
-                        long[] pattern = {0, 200, 200, 300};
-                        v.vibrate(pattern, -1);
+                        v.vibrate(pattern, 0);
                     }
                     if(!way)
-                    Instructions(currentAzimuth);
+                    Instructions(mAzimuth);
                 }
                 handler.postDelayed(runnable, delayy);
             }
@@ -284,7 +252,7 @@ public TextToSpeech tts;
             public void run() {
                 if (busNumber != null)
                     if (aboardBus == false) {
-                        new Warming().execute();
+                        fetchLastLocation();
                     }
                 handler.postDelayed(runnable2, delay);
             }
@@ -300,12 +268,10 @@ public TextToSpeech tts;
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-
             // Showing progress dialog
             pd = new ProgressDialog(CompassActivity.this);
             pd.setCancelable(false);
             pd.show();
-
         }
 
         //Check closest bus:
@@ -320,6 +286,7 @@ public TextToSpeech tts;
 
             if (jsonJedi != null) {
                 try {
+
                     //String[] latlong = currentPosition.split(",");
                     //double currentLatitude = abs(Double.parseDouble(latlong[0]));
                     //double currentLongitude = abs(Double.parseDouble(latlong[1]));
@@ -354,8 +321,8 @@ public TextToSpeech tts;
                         longitudes[i] = bus.getDouble(4);
 
                         //Bus - current Location
-                        distanceLat[i] = abs(abs(latitudes[i]) - abs(currentLocation.getLatitude()));
-                        distanceLng[i] = abs(abs(longitudes[i]) - abs(currentLocation.getLongitude()));
+                        distanceLat[i] = abs(abs(latitudes[i]) - abs(pPosition.getLatitude()));
+                        distanceLng[i] = abs(abs(longitudes[i]) - abs(pPosition.getLongitude()));
                        //Sum of lat and lng
                         calculations[i] = distanceLat[i] + distanceLng[i];
                         //Bus id for each instance
@@ -371,21 +338,22 @@ public TextToSpeech tts;
 
                     }
                     double great = Arrays.stream(calculations).min().getAsDouble();
-                    for (int i = 0; i < calculations.length; i++) {
-                        if (calculations[i] == great) {
-                            index = i;
-                            busNumber = algorithmBus[index];
-                            veclopis = speed[index];
+                   if(busAtStop == false) {
+                       for (int i = 0; i < calculations.length; i++) {
+                           if (calculations[i] == great) {
+                               index = i;
+                               busNumber = algorithmBus[index];
+                               veclopis = speed[index];
 
-                        }
-                    }
-                    checkProximity.setLatitude(latitudes[index]);
-                    checkProximity.setLongitude(longitudes[index]);
-                    //Bus distance to user
-                    distance = (int)checkProximity.distanceTo(currentLocation);
-                    nowLocation = latitudes[index] + "," + longitudes[index];
-                    Log.i(TAG, "Bus location at warming: " + checkProximity + "Stop location at warming: " + currentPosition);
-
+                           }
+                       }
+                       checkProximity.setLatitude(latitudes[index]);
+                       checkProximity.setLongitude(longitudes[index]);
+                       //Bus distance to user
+                       distance = (int) checkProximity.distanceTo(pPosition);
+                       nowLocation = latitudes[index] + "," + longitudes[index];
+                       Log.i(TAG, "Bus location at warming: " + checkProximity + "Stop location at warming: " + currentPosition);
+                   }
                 } catch (final JSONException e) {
                     Log.e(TAG, "Json parsing error: " + e.getMessage());
                     runOnUiThread(new Runnable() {
@@ -423,7 +391,7 @@ public TextToSpeech tts;
             if (pd.isShowing())
                 pd.dismiss();
             //setupCompass();
-            dis = Math.round(currentLocation.distanceTo(checkProximity));
+            dis = Math.round(pPosition.distanceTo(checkProximity));
             if (dis < 50.0f) {
                 busClose = true;
                 if (dis < 15.0f) {
@@ -456,7 +424,7 @@ Log.i(TAG,"hello hello i am a message");
             busId.setText(busNumber);
             velocity.setText(veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
-setupCompass();
+start();
 new busDriving().execute();
         }
     }
@@ -466,16 +434,16 @@ public void Instructions( double azimuth) {
     start.setLongitude(checkProximity.getLongitude());
     Location end = new Location("locc");
     fetchLastLocation();
-    end.setLatitude(currentLocation.getLatitude());
-    end.setLongitude(currentLocation.getLongitude());
+    end.setLatitude(pPosition.getLatitude());
+    end.setLongitude(pPosition.getLongitude());
     double latitude = abs(end.getLongitude()) - abs(start.getLongitude());
-    if(latitude > 0 && !way) {
+    if(mAzimuth < 180 && !way) {
         atLeft = true;
         turn = abs((180f - azimuth));
        Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
 
     }
-    else if(latitude < 0&& !way){
+    else if(mAzimuth > 180&& !way){
         atLeft = false;
         turn = abs(180 - azimuth);
        Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
@@ -577,108 +545,66 @@ public void Instructions( double azimuth) {
         }
     }
 
-
-    protected double bearing(double startLat, double startLng, double endLat, double endLng){
-        double longitude1 = startLng;
-        double longitude2 = endLng;
-        double latitude1 = Math.toRadians(startLat);
-        double latitude2 = Math.toRadians(endLat);
-        double longDiff= Math.toRadians(longitude2-longitude1);
-        double y= Math.sin(longDiff)*Math.cos(latitude2);
-        double x=Math.cos(latitude1)*Math.sin(latitude2)-Math.sin(latitude1)*Math.cos(latitude2)*Math.cos(longDiff);
-
-        return (Math.toDegrees(Math.atan2(y, x))+360)%360;
-    }
     @Override
     public void onSensorChanged(SensorEvent event) {
-        final float alpha = 0.97f;
-
-        synchronized (this) {
-            if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-
-                mGravity[0] = alpha * mGravity[0] + (1 - alpha)
-                        * event.values[0];
-                mGravity[1] = alpha * mGravity[1] + (1 - alpha)
-                        * event.values[1];
-                mGravity[2] = alpha * mGravity[2] + (1 - alpha)
-                        * event.values[2];
-
-                // mGravity = event.values;
-
-                // Log.e(TAG, Float.toString(mGravity[0]));
-            }
-
-            if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-                // mGeomagnetic = event.values;
-
-                mGeomagnetic[0] = alpha * mGeomagnetic[0] + (1 - alpha)
-                        * event.values[0];
-                mGeomagnetic[1] = alpha * mGeomagnetic[1] + (1 - alpha)
-                        * event.values[1];
-                mGeomagnetic[2] = alpha * mGeomagnetic[2] + (1 - alpha)
-                        * event.values[2];
-                // Log.e(TAG, Float.toString(event.values[0]));
-
-            }
-
-            float R[] = new float[9];
-            float I[] = new float[9];
-            boolean success = SensorManager.getRotationMatrix(R, I, mGravity,
-                    mGeomagnetic);
-            if (success) {
-                float orientation[] = new float[3];
-                SensorManager.getOrientation(R, orientation);
-                // Log.d(TAG, "azimuth (rad): " + azimuth);
-                azimuth = (float) Math.toDegrees(orientation[0]); // orientation
-                //Log.i(TAG, "oh " + azimuth);
-                azimuth = (azimuth + 360) % 360;
-        /*if(CompassActivity.nowLocation != null){
-                String[] position =  CompassActivity.nowLocation.split(",");
-            double latitude = Double.parseDouble(position[0]);
-            double longitude = Double.parseDouble(position[1]);
-            String[] positionn =  CompassActivity.currentPosition.split(",");
-            double latitudee = Double.parseDouble(positionn[0]);
-            double longitudee = Double.parseDouble(positionn[1]);*/
-
-
-                if(checkProximity== null)
-                {
-                    azimuth -= bearing(-22.9595769,-43.2013255, location.getLatitude(), location.getLongitude());
-                }
-                else{
-                    azimuth -= bearing(checkProximity.getLatitude(),checkProximity.getLongitude(),location.getLatitude(), location.getLongitude());
-
-                }
-                sotwLabel.setText(sotwFormatter.format(azimuth));
-                Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
-                        Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
-                        0.5f);
-                currentAzimuth = azimuth;
-
-                an.setDuration(210);
-                an.setRepeatCount(0);
-                arrowView.startAnimation(an);
-                //}
-
-                //Log.d(TAG, "azimuth (deg): " + azimuth);
-
-                if (listener != null) {
-                    listener.onNewAzimuth(azimuth);
-                }
-            }
+        if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+            SensorManager.getRotationMatrixFromVector(rMat, event.values);
+            mAzimuth = (int) (Math.toDegrees(SensorManager.getOrientation(rMat, orientation)[0]) + 360) % 360;
         }
+
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            System.arraycopy(event.values, 0, mLastAccelerometer, 0, event.values.length);
+            mLastAccelerometerSet = true;
+        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+
+
+
+            System.arraycopy(event.values, 0, mLastMagnetometer, 0, event.values.length);
+            mLastMagnetometerSet = true;
+        }
+        mag = mAzimuth;
+        if (mLastAccelerometerSet && mLastMagnetometerSet) {
+            SensorManager.getRotationMatrix(rMat, null, mLastAccelerometer, mLastMagnetometer);
+            SensorManager.getOrientation(rMat, orientation);
+            mAzimuth = (int) (Math.toDegrees(SensorManager.getOrientation(rMat, orientation)[0]) + 360) % 360;
+        }
+        if(checkProximity != null){
+            toBus(pPosition.getLatitude(), pPosition.getLongitude(), checkProximity.getLatitude(), checkProximity.getLongitude());
+        }
+        mAzimuth = Math.round(mAzimuth);
+        compass_img.setRotation(-Math.round(mAzimuth));
+
+        txt_compass.setText(mAzimuth + "° ");
     }
 
+
+    public void toBus(double startLat, double startLng, double endLat, double endLng)
+    {
+        double angle = Math.atan((endLat - startLat)/(endLng - startLng));
+        double b = 90 - angle;
+        double mod = (mag +b)%360;
+        mAzimuth = mod;
+    }
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
     }
-
     public void start() {
-        sensorManager.registerListener(this, gsensor,
-                SensorManager.SENSOR_DELAY_GAME);
-        sensorManager.registerListener(this, msensor,
-                SensorManager.SENSOR_DELAY_GAME);
+        if (mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) == null) {
+            if ((mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) || (mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) == null)) {
+                noSensorsAlert();
+            }
+            else {
+                mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+                mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+                haveSensor = mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_UI);
+                haveSensor2 = mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_UI);
+            }
+        }
+        else{
+            mRotationV = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+            haveSensor = mSensorManager.registerListener(this, mRotationV, SensorManager.SENSOR_DELAY_UI);
+        }
     }
 
     public void noSensorsAlert(){
@@ -694,15 +620,14 @@ public void Instructions( double azimuth) {
     }
 
     public void stop() {
-        sensorManager.unregisterListener(this);
+        if (haveSensor) {
+            mSensorManager.unregisterListener(this, mRotationV);
+        }
+        else {
+            mSensorManager.unregisterListener(this, mAccelerometer);
+            mSensorManager.unregisterListener(this, mMagnetometer);
+        }
     }
 
-    public void setAzimuthFix(float fix) {
-        azimuthFix = fix;
-    }
-
-    public void resetAzimuthFix() {
-        setAzimuthFix(0);
-    }
 
 }
