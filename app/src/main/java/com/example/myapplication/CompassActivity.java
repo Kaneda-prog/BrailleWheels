@@ -151,7 +151,8 @@ public TextToSpeech tts;
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
         Intent intent = getIntent();
-        //linha = intent.getStringExtra("bubus");
+        linha = intent.getStringExtra("bubus");
+        Log.i(TAG, linha);
                     //VIEWS
         //Aboard Bus button
         checkBus = findViewById(R.id.atBus);
@@ -425,7 +426,16 @@ Log.i(TAG,"hello hello i am a message");
             velocity.setText(veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
 start();
-new busDriving().execute();
+if(dis >10) {
+    new busDriving().execute();
+
+}
+else{
+    duration.setText("Tempo de chegada: " + " 0 minutos.");
+    tts.setLanguage(Locale.forLanguageTag("pt"));
+    tts.speak("Tempo de chegada: " + 0 + " minutos.",TextToSpeech.QUEUE_ADD, null);
+
+}
         }
     }
 public void Instructions( double azimuth) {

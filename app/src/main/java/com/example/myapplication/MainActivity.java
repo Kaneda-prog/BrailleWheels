@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
                             || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                         Log.e("error", "This Language is not supported");
                     } else {
-                        tts.speak("Olá! Bem vindo ao S.I.M, o sistema inteligente de mobilidade! Clique no botão começar em baixo da tela!", TextToSpeech.QUEUE_FLUSH, null);
+                        tts.speak("Olá! Bem vindo ao S.I.M, o sistema inteligente de mobilidade! Clique no botão começar em baixo da tela e diga sua linha!", TextToSpeech.QUEUE_FLUSH, null);
 
                     }
                 } else {
@@ -206,9 +206,6 @@ public void text()
     public void onClick(View v) {
         if (v == myButton) {
             fetchLastLocation();
-            Intent on = new Intent(this,CompassActivity.class);
-           // on.putExtra("bubus", voice);
-            startActivity(on);
             startVoiceRecognizitionActivity();
 //voice = "Maracana";
             //new GetContacts().execute();
@@ -240,7 +237,7 @@ public void text()
             Intent on = new Intent(this,CompassActivity.class);
             on.putExtra("bubus", voice);
             startActivity(on);
-            new GetContacts().execute();
+           // new GetContacts().execute();
         }
     }
 
