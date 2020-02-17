@@ -196,13 +196,6 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
             startActivityForResult(intent, 0);
         }
     }
-public void text()
-{
-
-    Toast.makeText(this, BUS_NUMBER, Toast.LENGTH_LONG).show();
-}
-
-
     public void onClick(View v) {
         if (v == myButton) {
             fetchLastLocation();

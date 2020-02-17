@@ -21,8 +21,6 @@ import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
-import android.view.animation.Animation;
-import android.view.animation.RotateAnimation;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -48,102 +46,106 @@ import static java.lang.StrictMath.abs;
 
 public class CompassActivity  extends AppCompatActivity implements View.OnClickListener, SensorEventListener, TextToSpeech.OnInitListener {
 
-    private static final String TAG = "Compass";
-    private Location location;
-    private int dis;
-    public double mag;
+
 
     @Override
     public void onInit(int status) {
-
     }
-
+            //ImageViews
     ImageView compass_img;
+    ImageView arrowView;
+
+            //TextView
     TextView txt_compass;
+    TextView dist;
+    TextView duration;
+    TextView velocity;
+    TextView busId;
+
+             //double
     double mAzimuth;
+    private double turn;
+    public double mag;
+
+            //Sensors
     private SensorManager mSensorManager;
     private Sensor mRotationV, mAccelerometer, mMagnetometer;
-    boolean haveSensor = false, haveSensor2 = false;
+
+             //Floats
     float[] rMat = new float[9];
     float[] orientation = new float[3];
     private float[] mLastAccelerometer = new float[3];
     private float[] mLastMagnetometer = new float[3];
+
+            //Booleans
+    boolean haveSensor = false, haveSensor2 = false;
     private boolean mLastAccelerometerSet = false;
     private boolean mLastMagnetometerSet = false;
-
-    private SensorManager sensorManager;
-    private Sensor gsensor;
-    private Sensor msensor;
-    Object lock;
-    private float[] mGravity = new float[3];
-    private float[] mGeomagnetic = new float[3];
-    private float[] RI = new float[9];
-    private float[] I = new float[9];
-
-
-
-
-
-    static Location currentlocation;
-    Location jediBus;
-    FusedLocationProviderClient fusedLocationProviderClient;
-public TextToSpeech tts;
-    private static final int REQUEST_CODE = 1011;
-    private float azimuth;
-    private float azimuthFix;
-    private Compass compass;
-    private TextView sotwLabel;  // SOTW is for "side of the world"
-    Vibrator v;
-    public boolean busAtStop = false;
+    private boolean atLeft;
+    private boolean way;
     public boolean aboardBus = false;
+    public boolean busAtStop = false;
+    public boolean busClose;
+
+            //TextToSpeech
+    public TextToSpeech tts;
+
+            //Vibrator
+    Vibrator v;
+
+            //Button
     public Button checkBus;
-    TextView dist;
-    TextView duration;
-    TextView atStop;
-    private TextView velocity;
-    private TextView busId;
-    String distancee;
-    String busNumber;
-    String linha = "133";
-    //-22.917386,-43.250297
-    static public String currentPosition = "-22.92715, -43.25187";
-    String busLocation;
-    String otherBus;
-    private float currentAzimuth;
-    private SOTW sotwFormatter;
+
+            //ProgressDialog
     private ProgressDialog pd;
+
+            //Handler
     Handler handler = new Handler();
     Handler vibratorHandler = new Handler();
+
+            //Runnable
     Runnable runnable;
     Runnable runnable2;
-    Runnable runnable3;
+
+            //int
     int delay = 25 * 1000;
     int delayy = 2 * 1000;
     private int index;
-    private String value;
-    private String distValue;
-    static public String nowLocation;
     private int veclopis;
-    private float lastDistance;
+    private int dis;
+    private static final int REQUEST_CODE = 1011;
     public int distance;
-    public Location checkProximity;
-    public boolean busClose;
-    private int ii;
-    private float degree;
-    private double turn;
-    private boolean atLeft;
-    private float hipDist;
-    private double heightDist;
-    private boolean precision;
-    private double altura;
-    private double largura;
-    private double sideDist;
-    private boolean way;
+
+            //Strings
+    String busNumber;
+    String distValue;
+    String line = "133";
+    private String value;
+    private static final String TAG = "Compass";
+    public static String currentPosition = "-22.92715, -43.25187";
+    public static String nowLocation;
+
+            //Locations
+    FusedLocationProviderClient fusedLocationProviderClient;
+    private Location location;
     public Location pPosition;
-    private ImageView arrowView;
+    public Location checkProximity;
+
+    public void Instructions( double azimuth) {
+        fetchLastLocation();
+        if(mAzimuth < 180 && !way) {
+            atLeft = true;
+            turn = abs((180 - azimuth));
+            Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
+        }
+        else if(mAzimuth > 180&& !way){
+            atLeft = false;
+            turn = abs(180 - azimuth);
+            Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
+        }
+    }
+
     @Override
-
-
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_compass);
@@ -151,7 +153,7 @@ public TextToSpeech tts;
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
         Intent intent = getIntent();
-        //linha = intent.getStringExtra("bubus");
+        //line = intent.getStringExtra("bubus");
                     //VIEWS
         //Aboard Bus button
         checkBus = findViewById(R.id.atBus);
@@ -165,11 +167,10 @@ public TextToSpeech tts;
         duration = findViewById(R.id.duration);
         busId = findViewById(R.id.busId);
         velocity = findViewById(R.id.veclopis);
-        sotwLabel = findViewById(R.id.txt_azimuth);
+
         //Vibrator Service
         v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         //Well, sotwFormatter
-        sotwFormatter = new SOTW(this);
         location = MainActivity.currentLocation;
         //Stuff to be executed
 
@@ -177,6 +178,7 @@ public TextToSpeech tts;
         compass_img = findViewById(R.id.img_compass);
         txt_compass = findViewById(R.id.txt_azimuth);
     }
+
     private void fetchLastLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
@@ -195,6 +197,7 @@ public TextToSpeech tts;
 
         });
     }
+
     public void onClick(View v) {
         if (v == checkBus) {
             if (busAtStop) {
@@ -205,29 +208,6 @@ public TextToSpeech tts;
 
             }
         }
-    }
-
-
-
-
-    private void adjustArrow(float azimuth) {
-        Animation an = new RotateAnimation(-currentAzimuth, -azimuth,
-                Animation.RELATIVE_TO_SELF, 0.5f, Animation.RELATIVE_TO_SELF,
-                0.5f);
-        currentAzimuth = azimuth;
-
-        an.setDuration(210);
-        an.setRepeatCount(0);
-        if (azimuth > -1 && azimuth < 1) {
-
-        }
-
-        arrowView.startAnimation(an);
-
-    }
-
-    private void adjustSotwLabel(float azimuth) {
-        sotwLabel.setText(sotwFormatter.format(azimuth));
     }
 
     @Override
@@ -261,8 +241,6 @@ public TextToSpeech tts;
         super.onResume();
     }
 
-
-
     //TODO: Checking closest bus in the line
     public class Warming extends AsyncTask<Void, Void, Void> {
         @Override
@@ -282,15 +260,10 @@ public TextToSpeech tts;
             Http sh = new Http();
 
             // Making a request to url and getting response
-            String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/" + linha + ".json");
+            String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/" + line + ".json");
 
             if (jsonJedi != null) {
                 try {
-
-                    //String[] latlong = currentPosition.split(",");
-                    //double currentLatitude = abs(Double.parseDouble(latlong[0]));
-                    //double currentLongitude = abs(Double.parseDouble(latlong[1]));
-
                     JSONObject jsonObj = new JSONObject(jsonJedi.substring(jsonJedi.indexOf("{"), jsonJedi.lastIndexOf("}") + 1));
                     // Getting JSON Array node
                         JSONArray points = jsonObj.getJSONArray("DATA");
@@ -315,27 +288,35 @@ public TextToSpeech tts;
                     speed = new int[points.length()];
                     //Looping thought the buses
                     for (int i = 0; i < points.length(); i++) {
-                        JSONArray bus = points.getJSONArray(i);
-                        //Bus location lat and lng
-                        latitudes[i] = bus.getDouble(3);
-                        longitudes[i] = bus.getDouble(4);
 
-                        //Bus - current Location
-                        distanceLat[i] = abs(abs(latitudes[i]) - abs(pPosition.getLatitude()));
-                        distanceLng[i] = abs(abs(longitudes[i]) - abs(pPosition.getLongitude()));
-                       //Sum of lat and lng
-                        calculations[i] = distanceLat[i] + distanceLng[i];
-                        //Bus id for each instance
-                        algorithmBus[i] = bus.getString(1);
-
-                        //Bus Location
-                        checkProximity = new Location("abc");
-                        checkProximity.setLatitude(latitudes[i]);
-                        checkProximity.setLongitude(longitudes[i]);
-                        //Bus speed
-                       speed[i] = bus.getInt(5);
+                           JSONArray bus = points.getJSONArray(i);
+                           //Bus location lat and lng
+                           latitudes[i] = bus.getDouble(3);
+                           longitudes[i] = bus.getDouble(4);
 
 
+                           //Bus id for each instance
+                           algorithmBus[i] = bus.getString(1);
+                           //Bus speed
+                            speed[i] = bus.getInt(5);
+                           if(busAtStop == false) {
+                           //Bus - current Location
+                               distanceLat[i] = abs(abs(latitudes[i]) - abs(pPosition.getLatitude()));
+                               distanceLng[i] = abs(abs(longitudes[i]) - abs(pPosition.getLongitude()));
+                           //Sum of lat and lng
+                               calculations[i] = distanceLat[i] + distanceLng[i];
+                           //Bus Location
+                                checkProximity = new Location("abc");
+                                checkProximity.setLatitude(latitudes[i]);
+                                checkProximity.setLongitude(longitudes[i]);
+                           }
+                       else{
+                           if(algorithmBus[i] == busNumber)
+                           {
+                               checkProximity.setLatitude(latitudes[i]);
+                               checkProximity.setLongitude(longitudes[i]);
+                           }
+                       }
                     }
                     double great = Arrays.stream(calculations).min().getAsDouble();
                    if(busAtStop == false) {
@@ -349,11 +330,12 @@ public TextToSpeech tts;
                        }
                        checkProximity.setLatitude(latitudes[index]);
                        checkProximity.setLongitude(longitudes[index]);
+                   }
                        //Bus distance to user
                        distance = (int) checkProximity.distanceTo(pPosition);
                        nowLocation = latitudes[index] + "," + longitudes[index];
                        Log.i(TAG, "Bus location at warming: " + checkProximity + "Stop location at warming: " + currentPosition);
-                   }
+
                 } catch (final JSONException e) {
                     Log.e(TAG, "Json parsing error: " + e.getMessage());
                     runOnUiThread(new Runnable() {
@@ -390,70 +372,52 @@ public TextToSpeech tts;
             // Dismiss the progress dialog
             if (pd.isShowing())
                 pd.dismiss();
-            //setupCompass();
+
             dis = Math.round(pPosition.distanceTo(checkProximity));
-            if (dis < 50.0f) {
-                busClose = true;
-                if (dis < 15.0f) {
-                    if (veclopis != 0) {
-                       tts.speak("Espere o ônibus parar",TextToSpeech.QUEUE_ADD, null);
-
-                    }
-                    if(veclopis == 0 && !way) {
-                       tts.setLanguage(Locale.forLanguageTag("pt"));
-                        busAtStop = true;
-                        tts.setLanguage(Locale.forLanguageTag("pt"));
-                        tts.speak("Seu ônibus parou. Siga as próximas instruções!",TextToSpeech.QUEUE_ADD, null);
-
-                    }
-                    if(dis < 2)
-                    {
-                        aboardBus = true;
-                    }
-                }
-                else{
+            if(!aboardBus) {
+                if (dis < 50.0f) {
+                    busClose = true;
+                    float val = Math.round(dis/veclopis);
+                    duration.setText("Tempo de chegada: " + val + ".");
                     tts.setLanguage(Locale.forLanguageTag("pt"));
-                    tts.speak("Há um ônibus perto. Sinalize para o " + busNumber,TextToSpeech.QUEUE_ADD, null);
+                    tts.speak("Tempo de chegada: " + val,TextToSpeech.QUEUE_ADD, null);
+                    if (dis < 15.0f) {
+                        if (veclopis != 0) {
+                            tts.speak("Espere o ônibus parar", TextToSpeech.QUEUE_ADD, null);
+                        }
+                        //Entrance instructions
+                        if (veclopis == 0 && !busAtStop) {
+                            tts.setLanguage(Locale.forLanguageTag("pt"));
+                            busAtStop = true;
+                            tts.setLanguage(Locale.forLanguageTag("pt"));
+                            tts.speak("Seu ônibus parou. Siga as próximas instruções!", TextToSpeech.QUEUE_ADD, null);
 
-                     }
+                        }
+                        //Aboard the bus
+                        if (dis < 2) {
+                            aboardBus = true;
+                        }
+                    } else {
+                        tts.setLanguage(Locale.forLanguageTag("pt"));
+                        tts.speak("Há um ônibus perto. Sinalize para o " + busNumber, TextToSpeech.QUEUE_ADD, null);
+
+                    }
+                } else {
+                    new busDriving().execute();
+                }
             }
             tts.setLanguage(Locale.forLanguageTag("pt"));
             tts.speak(getString(R.string.onibus)+ dis + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
             tts.speak(getString(R.string.ui) + veclopis + getString(R.string.speed ),TextToSpeech.QUEUE_ADD, null);
-Log.i(TAG,"hello hello i am a message");
             busId.setText(busNumber);
             velocity.setText(veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
-start();
-new busDriving().execute();
+            start();
+
         }
     }
-public void Instructions( double azimuth) {
-    Location start = new Location("loc");
-    start.setLatitude(checkProximity.getLatitude());
-    start.setLongitude(checkProximity.getLongitude());
-    Location end = new Location("locc");
-    fetchLastLocation();
-    end.setLatitude(pPosition.getLatitude());
-    end.setLongitude(pPosition.getLongitude());
-    double latitude = abs(end.getLongitude()) - abs(start.getLongitude());
-    if(mAzimuth < 180 && !way) {
-        atLeft = true;
-        turn = abs((180f - azimuth));
-       Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
 
-    }
-    else if(mAzimuth > 180&& !way){
-        atLeft = false;
-        turn = abs(180 - azimuth);
-       Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(start.distanceTo(end)) + " meters.", Toast.LENGTH_LONG).show();
-
-    }
-
-
-
-}
-//TODO: Updating bus location
+    //TODO: Navigations time and distance
     private class busDriving extends AsyncTask<Void, Void, Void> {
         @Override
         protected void onPreExecute() {
@@ -469,11 +433,8 @@ public void Instructions( double azimuth) {
         @Override
         protected Void doInBackground(Void... arg0) {
             Https sh = new Https();
-
             // Making a request to url and getting response
             String jsonStr = sh.makeServiceCall("https://maps.googleapis.com/maps/api/directions/json?origin=" + nowLocation + "&destination=" + currentPosition + "&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag");
-
-
             if (jsonStr != null) {
                 try {
                     JSONObject jsonObj = new JSONObject(jsonStr);
@@ -536,7 +497,7 @@ public void Instructions( double azimuth) {
             if (pd.isShowing())
                 pd.dismiss();
             Log.i(TAG, "Tempo de chegada: " + value);
-           duration.setText("Tempo de chegada: " + value + ".");
+            duration.setText("Tempo de chegada: " + value + ".");
             tts.setLanguage(Locale.forLanguageTag("pt"));
             tts.speak("Tempo de chegada: " + value,TextToSpeech.QUEUE_ADD, null);
 
@@ -577,7 +538,6 @@ public void Instructions( double azimuth) {
         txt_compass.setText(mAzimuth + "° ");
     }
 
-
     public void toBus(double startLat, double startLng, double endLat, double endLng)
     {
         double angle = Math.atan((endLat - startLat)/(endLng - startLng));
@@ -589,6 +549,7 @@ public void Instructions( double azimuth) {
     public void onAccuracyChanged(Sensor sensor, int i) {
 
     }
+
     public void start() {
         if (mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) == null) {
             if ((mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) || (mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) == null)) {
