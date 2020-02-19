@@ -199,9 +199,6 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
     public void onClick(View v) {
         if (v == myButton) {
             fetchLastLocation();
-            Intent on = new Intent(this,CompassActivity.class);
-           // on.putExtra("bubus", voice);
-            startActivity(on);
             startVoiceRecognizitionActivity();
 //voice = "Maracana";
             //new GetContacts().execute();
@@ -227,12 +224,12 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
         if (requestCode == VOICE_RECOGNIZITION_REQUESTCODE && resultCode == RESULT_OK) {
             ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             voice = matches.get(0);
-            voice.replaceAll("","+");
-            voice.replaceAll("-","+");
             Log.i(TAG, "You said " + voice);
             Intent on = new Intent(this,CompassActivity.class);
             on.putExtra("bubus", voice);
             startActivity(on);
+            voice.replaceAll("","+");
+            voice.replaceAll("-","+");
             new GetContacts().execute();
         }
     }

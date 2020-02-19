@@ -111,4 +111,12 @@
         android:src="@drawable/dial"
         android:visibility="visible" />
 
+    <ImageView
+        android:id="@+id/busStop"
+        android:layout_width="109dp"
+        android:layout_height="98dp"
+        android:layout_marginLeft="260dp"
+        android:layout_marginTop="100dp"
+        map:srcCompat="@drawable/bus" />
+
 </RelativeLayout>

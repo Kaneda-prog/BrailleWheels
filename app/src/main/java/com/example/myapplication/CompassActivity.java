@@ -47,6 +47,8 @@ import static java.lang.StrictMath.abs;
 public class CompassActivity  extends AppCompatActivity implements View.OnClickListener, SensorEventListener, TextToSpeech.OnInitListener {
 
 
+    private boolean busSelected;
+    private boolean checkCheck;
 
     @Override
     public void onInit(int status) {
@@ -54,6 +56,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             //ImageViews
     ImageView compass_img;
     ImageView arrowView;
+    ImageView bus;
 
             //TextView
     TextView txt_compass;
@@ -85,7 +88,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private boolean way;
     public boolean aboardBus = false;
     public boolean busAtStop = false;
-    public boolean busClose;
+    public boolean busClose = false;
 
             //TextToSpeech
     public TextToSpeech tts;
@@ -119,7 +122,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             //Strings
     String busNumber;
     String distValue;
-    String line = "133";
+    String line;
     private String value;
     private static final String TAG = "Compass";
     public static String currentPosition = "-22.92715, -43.25187";
@@ -132,15 +135,14 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     public Location checkProximity;
 
     public void Instructions( double azimuth) {
-        fetchLastLocation();
         if(mAzimuth < 180 && !way) {
-            atLeft = true;
-            turn = abs((180 - azimuth));
+            atLeft = false;
+            turn = abs((azimuth));
             Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
         }
         else if(mAzimuth > 180&& !way){
-            atLeft = false;
-            turn = abs(180 - azimuth);
+            atLeft = true;
+            turn = abs(azimuth);
             Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
         }
     }
@@ -152,31 +154,33 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
         //Location
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
+
         Intent intent = getIntent();
-        //line = intent.getStringExtra("bubus");
+        line = intent.getStringExtra("bubus");
+        line = "coconut 133";
+        line = line.replaceAll("[^0-9.]", "");
                     //VIEWS
         //Aboard Bus button
         checkBus = findViewById(R.id.atBus);
         checkBus.setOnClickListener(this);
         checkBus.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
         //Images
-        arrowView = findViewById(R.id.img_compass);
+        compass_img = findViewById(R.id.img_compass);
+        bus =findViewById(R.id.busStop);
         //Text
-        tts = new TextToSpeech(this,this);
+        busId = findViewById(R.id.busId);
         dist = findViewById(R.id.distance);
         duration = findViewById(R.id.duration);
-        busId = findViewById(R.id.busId);
         velocity = findViewById(R.id.veclopis);
-
+        txt_compass = findViewById(R.id.txt_azimuth);
+        tts = new TextToSpeech(this,this);
         //Vibrator Service
         v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         //Well, sotwFormatter
         location = MainActivity.currentLocation;
         //Stuff to be executed
-
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        compass_img = findViewById(R.id.img_compass);
-        txt_compass = findViewById(R.id.txt_azimuth);
+        bus.setVisibility(View.INVISIBLE);
     }
 
     private void fetchLastLocation() {
@@ -186,15 +190,12 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
         }
 
         Task<Location> task = fusedLocationProviderClient.getLastLocation();
-        task.addOnSuccessListener(new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {
-                if (location != null) {
-                    pPosition = location;
-                    new Warming().execute();
-                }
+        task.addOnSuccessListener(location -> {
+            if (location != null) {
+                pPosition = location;
+                if(!checkCheck)
+                new Warming().execute();
             }
-
         });
     }
 
@@ -212,30 +213,32 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
 
     @Override
     protected void onResume() {
-        vibratorHandler.postDelayed(runnable = new Runnable() {
-            public void run() {
-                if (busAtStop) {
-                    if (mAzimuth < 15 || mAzimuth > 355) {
-                        way = true;
-                        double power = mAzimuth *-1.5;
-                        fetchLastLocation();
-                        long[] pattern = {0, 200, 200, 300};
-                        v.vibrate(pattern, 0);
-                    }
-                    if(!way)
-                    Instructions(mAzimuth);
+        vibratorHandler.postDelayed(runnable = () -> {
+            if (busAtStop) {
+                checkCheck = true;
+                fetchLastLocation();
+                if (mAzimuth < 15 || mAzimuth > 355) {
+                    way = true;
+                } else {
+                    way = false;
                 }
-                handler.postDelayed(runnable, delayy);
+                if (way) {
+                    long[] pattern = {0, 200, 200, 300};
+                    v.vibrate(pattern, 0);
+                }
+                if (!way) {
+                    Instructions(mAzimuth);
+                    v.cancel();
+                }
             }
+            handler.postDelayed(runnable, delayy);
         }, delayy);
-        handler.postDelayed(runnable2 = new Runnable() {
-            public void run() {
-                if (busNumber != null)
-                    if (aboardBus == false) {
-                        fetchLastLocation();
-                    }
-                handler.postDelayed(runnable2, delay);
-            }
+        handler.postDelayed(runnable2 = () -> {
+            if (busNumber != null)
+                if (aboardBus == false) {
+                    fetchLastLocation();
+                }
+            handler.postDelayed(runnable2, delay);
         }, delay);
         start();
         super.onResume();
@@ -251,17 +254,11 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             pd.setCancelable(false);
             pd.show();
         }
-
-        //Check closest bus:
-        //Set it Id, velocity and distance
         @Override
-
         protected Void doInBackground(Void... arg0) {
             Http sh = new Http();
-
             // Making a request to url and getting response
             String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/" + line + ".json");
-
             if (jsonJedi != null) {
                 try {
                     JSONObject jsonObj = new JSONObject(jsonJedi.substring(jsonJedi.indexOf("{"), jsonJedi.lastIndexOf("}") + 1));
@@ -299,7 +296,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                            algorithmBus[i] = bus.getString(1);
                            //Bus speed
                             speed[i] = bus.getInt(5);
-                           if(busAtStop == false) {
+                           if(busSelected == false) {
                            //Bus - current Location
                                distanceLat[i] = abs(abs(latitudes[i]) - abs(pPosition.getLatitude()));
                                distanceLng[i] = abs(abs(longitudes[i]) - abs(pPosition.getLongitude()));
@@ -307,24 +304,29 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                                calculations[i] = distanceLat[i] + distanceLng[i];
                            //Bus Location
                                 checkProximity = new Location("abc");
-                                checkProximity.setLatitude(latitudes[i]);
-                                checkProximity.setLongitude(longitudes[i]);
+                                //checkProximity.setLatitude(latitudes[i]);
+                                //checkProximity.setLongitude(longitudes[i]);
                            }
                        else{
                            if(algorithmBus[i] == busNumber)
                            {
+                               busNumber = algorithmBus[i];
                                checkProximity.setLatitude(latitudes[i]);
                                checkProximity.setLongitude(longitudes[i]);
+                               veclopis=speed[i];
+                               nowLocation = latitudes[i] + "," + longitudes[i];
+
                            }
                        }
                     }
                     double great = Arrays.stream(calculations).min().getAsDouble();
-                   if(busAtStop == false) {
+                   if(busSelected == false) {
                        for (int i = 0; i < calculations.length; i++) {
                            if (calculations[i] == great) {
                                index = i;
                                busNumber = algorithmBus[index];
                                veclopis = speed[index];
+                               nowLocation = latitudes[index] + "," + longitudes[index];
 
                            }
                        }
@@ -333,7 +335,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                    }
                        //Bus distance to user
                        distance = (int) checkProximity.distanceTo(pPosition);
-                       nowLocation = latitudes[index] + "," + longitudes[index];
+
                        Log.i(TAG, "Bus location at warming: " + checkProximity + "Stop location at warming: " + currentPosition);
 
                 } catch (final JSONException e) {
@@ -372,38 +374,48 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             // Dismiss the progress dialog
             if (pd.isShowing())
                 pd.dismiss();
-
-            dis = Math.round(pPosition.distanceTo(checkProximity));
+            duration.setText( "Linha: " + line);
+            dis = 10;
             if(!aboardBus) {
                 if (dis < 50.0f) {
                     busClose = true;
-                    float val = Math.round(dis/veclopis);
-                    duration.setText("Tempo de chegada: " + val + ".");
-                    tts.setLanguage(Locale.forLanguageTag("pt"));
-                    tts.speak("Tempo de chegada: " + val,TextToSpeech.QUEUE_ADD, null);
-                    if (dis < 15.0f) {
+                    //float val = Math.round(dis/veclopis);
+                    //duration.setText("Tempo de chegada: " + val + ".");
+                   // tts.setLanguage(Locale.forLanguageTag("pt"));
+                   // tts.speak("Tempo de chegada: " + val,TextToSpeech.QUEUE_ADD, null);
+                    if (dis < 15) {
                         if (veclopis != 0) {
                             tts.speak("Espere o ônibus parar", TextToSpeech.QUEUE_ADD, null);
+                            busAtStop = false;
                         }
                         //Entrance instructions
                         if (veclopis == 0 && !busAtStop) {
-                            tts.setLanguage(Locale.forLanguageTag("pt"));
                             busAtStop = true;
                             tts.setLanguage(Locale.forLanguageTag("pt"));
                             tts.speak("Seu ônibus parou. Siga as próximas instruções!", TextToSpeech.QUEUE_ADD, null);
-
                         }
                         //Aboard the bus
                         if (dis < 2) {
                             aboardBus = true;
                         }
-                    } else {
+                    }
+                    else {
+                        busSelected = false;
                         tts.setLanguage(Locale.forLanguageTag("pt"));
                         tts.speak("Há um ônibus perto. Sinalize para o " + busNumber, TextToSpeech.QUEUE_ADD, null);
 
                     }
-                } else {
-                    new busDriving().execute();
+                }
+                else {
+                    //new busDriving().execute();
+                }
+                if(busAtStop) {
+                    bus.setVisibility(View.VISIBLE);
+                    busSelected = true;
+                }
+                if(!busAtStop) {
+                    bus.setVisibility(View.INVISIBLE);
+                    busSelected = false;
                 }
             }
             tts.setLanguage(Locale.forLanguageTag("pt"));
@@ -412,6 +424,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             busId.setText(busNumber);
             velocity.setText(veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
+            Toast.makeText(getApplicationContext(),"LOCATION:"+ pPosition.getLatitude() +", " + pPosition.getLongitude() + " BUS: "+ checkProximity.getLatitude() + ", " + checkProximity.getLongitude(), Toast.LENGTH_LONG).show();
             start();
 
         }
@@ -579,12 +592,12 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                 });
         alertDialog.show();
     }
-
-    public void stop() {
+    @Override
+    public void onStop() {
+        super.onStop();
         if (haveSensor) {
             mSensorManager.unregisterListener(this, mRotationV);
-        }
-        else {
+        } else {
             mSensorManager.unregisterListener(this, mAccelerometer);
             mSensorManager.unregisterListener(this, mMagnetometer);
         }
