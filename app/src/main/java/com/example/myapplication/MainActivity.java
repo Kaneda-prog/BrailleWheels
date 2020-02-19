@@ -199,6 +199,9 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
     public void onClick(View v) {
         if (v == myButton) {
             fetchLastLocation();
+            Intent on = new Intent(this,CompassActivity.class);
+            on.putExtra("bubus", voice);
+            startActivity(on);
             startVoiceRecognizitionActivity();
 //voice = "Maracana";
             //new GetContacts().execute();

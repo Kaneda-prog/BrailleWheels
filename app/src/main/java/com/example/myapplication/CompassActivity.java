@@ -31,6 +31,14 @@ import androidx.core.app.ActivityCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 
@@ -44,15 +52,17 @@ import java.util.Locale;
 import static java.lang.StrictMath.abs;
 
 
-public class CompassActivity  extends AppCompatActivity implements View.OnClickListener, SensorEventListener, TextToSpeech.OnInitListener {
+public class CompassActivity  extends AppCompatActivity implements OnMapReadyCallback, View.OnClickListener, SensorEventListener, TextToSpeech.OnInitListener {
 
 
     private boolean busSelected;
     private boolean checkCheck;
+    private Marker marker;
 
     @Override
     public void onInit(int status) {
     }
+    private GoogleMap mMap;
             //ImageViews
     ImageView compass_img;
     ImageView arrowView;
@@ -133,17 +143,48 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
     private Location location;
     public Location pPosition;
     public Location checkProximity;
+float Proportion(float distance)
+{
+    float zoom =Math.round((19*((distance-10)/distance)+ 1));
 
+return  zoom;
+}
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+
+        // Add a marker at current place, zoom and move the camera, because you deserve it ;)
+        LatLng lating = new LatLng(pPosition.getLatitude(), pPosition.getLongitude());
+        mMap.addMarker(new MarkerOptions().position(lating).title("You are here now"));
+
+        if(checkProximity != null)
+        {
+            float dis = checkProximity.distanceTo(pPosition);
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(lating));
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(lating,Proportion(dis)));
+
+            if(marker != null){
+                marker.remove();
+            }
+            //mMap.addMarker(new MarkerOptions().position(lat).)
+             LatLng lat = new LatLng(checkProximity.getLatitude(), checkProximity.getLongitude());
+             marker = mMap.addMarker(new MarkerOptions().position(lat).title("Your bus").icon(BitmapDescriptorFactory
+                     .defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+
+
+        }
+    }
     public void Instructions( double azimuth) {
         if(mAzimuth < 180 && !way) {
             atLeft = false;
             turn = abs((azimuth));
-            Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
+           // Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
         }
         else if(mAzimuth > 180&& !way){
             atLeft = true;
             turn = abs(azimuth);
-            Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
+
+            //Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -353,15 +394,10 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
                 }
             } else {
                 Log.e(TAG, "Couldn't get json from server.");
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(getApplicationContext(),
-                                "Couldn't get json from server. Check LogCat for possible errors!",
-                                Toast.LENGTH_LONG)
-                                .show();
-                    }
-                });
+                runOnUiThread(() -> Toast.makeText(getApplicationContext(),
+                        "Couldn't get json from server. Check LogCat for possible errors!",
+                        Toast.LENGTH_LONG)
+                        .show());
 
             }
 
@@ -375,7 +411,7 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             if (pd.isShowing())
                 pd.dismiss();
             duration.setText( "Linha: " + line);
-            dis = 10;
+            dis = Math.round(checkProximity.distanceTo(pPosition));
             if(!aboardBus) {
                 if (dis < 50.0f) {
                     busClose = true;
@@ -425,6 +461,9 @@ public class CompassActivity  extends AppCompatActivity implements View.OnClickL
             velocity.setText(veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
             Toast.makeText(getApplicationContext(),"LOCATION:"+ pPosition.getLatitude() +", " + pPosition.getLongitude() + " BUS: "+ checkProximity.getLatitude() + ", " + checkProximity.getLongitude(), Toast.LENGTH_LONG).show();
+            SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                    .findFragmentById(R.id.map);
+            mapFragment.getMapAsync(CompassActivity.this);
             start();
 
         }
