@@ -2,6 +2,7 @@ package com.example.myapplication;
 
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -260,7 +261,6 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
     @Override
     public void onConnectionSuspended(int i) {
-
     }
 
     @Override
@@ -272,13 +272,6 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
                 PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
             return;
         }
         Log.d(TAG, "Location update started ..............: ");
@@ -289,8 +282,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     @Override
     public void onLocationChanged(Location location) {
         previouslatLng = new LatLng(location.getLatitude(), location.getLongitude());
-        pPosition = location;
-        duration.setText( pPosition.getLatitude() + ", " + pPosition.getLongitude());
+        Log.i(TAG,"AAAAhhhh" + pPosition.getLatitude() + ", " + pPosition.getLongitude() );
         double rota = 0.0;
         double startrota = 0.0;
         if (previousLocation != null) {
@@ -301,6 +293,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
 
         rotateMarker(m, (float) rota, (float) startrota);
+
 
         previousLocation = location;
         Log.d(TAG, "Firing onLocationChanged..........................");
@@ -335,17 +328,14 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     }
     @Override
     public void onStatusChanged(String provider, int status, Bundle extras) {
-
     }
 
     @Override
     public void onProviderEnabled(String provider) {
-
     }
 
     @Override
     public void onProviderDisabled(String provider) {
-
     }
 
     @Override
@@ -381,6 +371,9 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                 double lat = t * toPosition.latitude + (1 - t)
                         * startLatLng.latitude;
                 m.setPosition(new LatLng(lat, lng));
+                pPosition.setLatitude(toPosition.latitude);
+                pPosition.setLongitude(toPosition.longitude);
+                Log.i(TAG, " i need help " + pPosition.getLongitude() + ", " + pPosition.getLongitude());
 
                 if (t < 1.0) {
                     // Post again 16ms later.
@@ -410,6 +403,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         }
     }
 
+    @SuppressLint("HandlerLeak")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -518,6 +512,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
             Log.d(TAG, "Location update resumed .....................");
         }
         vibratorHandler.postDelayed(runnable = () -> {
+            duration.setText(pPosition.getLatitude() + ", " + pPosition.getLongitude());
             //fetchLastLocation();
             Log.i(TAG, " help me");
             if (busAtStop && !aboardBus) {
