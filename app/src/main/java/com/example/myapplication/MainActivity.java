@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
                             || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                         Log.e("error", "This Language is not supported");
                     } else {
-                        tts.speak("Olá! Bem vindo ao S.I.M, o sistema inteligente de mobilidade! Clique no botão começar em baixo da tela e diga sua linha!", TextToSpeech.QUEUE_FLUSH, null);
+                        tts.speak("Olá! Bem vindo ao S.I.M, o sistema inteligente de mobilidade! Clique no botão começar em baixo da tela!", TextToSpeech.QUEUE_FLUSH, null);
 
                     }
                 } else {
@@ -196,16 +196,12 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
             startActivityForResult(intent, 0);
         }
     }
-public void text()
-{
-
-    Toast.makeText(this, BUS_NUMBER, Toast.LENGTH_LONG).show();
-}
-
-
     public void onClick(View v) {
         if (v == myButton) {
             fetchLastLocation();
+            Intent on = new Intent(this,CompassActivity.class);
+            on.putExtra("bubus", voice);
+            startActivity(on);
             startVoiceRecognizitionActivity();
 //voice = "Maracana";
             //new GetContacts().execute();
@@ -231,13 +227,13 @@ public void text()
         if (requestCode == VOICE_RECOGNIZITION_REQUESTCODE && resultCode == RESULT_OK) {
             ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             voice = matches.get(0);
-            voice.replaceAll("","+");
-            voice.replaceAll("-","+");
             Log.i(TAG, "You said " + voice);
             Intent on = new Intent(this,CompassActivity.class);
             on.putExtra("bubus", voice);
             startActivity(on);
-           // new GetContacts().execute();
+            voice.replaceAll("","+");
+            voice.replaceAll("-","+");
+            new GetContacts().execute();
         }
     }
 
