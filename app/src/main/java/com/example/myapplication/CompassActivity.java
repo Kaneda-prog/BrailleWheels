@@ -72,8 +72,8 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     private boolean checkCheck;
     private Marker marker;
     private Marker markerr;
-    private double lati = -22.93164;
-    private double longi = -43.17967;
+    private double lati = -22.95965;
+    private double longi = -43.20119;
 
     @Override
     public void onInit(int status) {
@@ -724,8 +724,10 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                 }
             }
             tts.setLanguage(Locale.forLanguageTag("pt"));
-            tts.speak(getString(R.string.onibus)+ dis + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
-            tts.speak(getString(R.string.ui) + veclopis + getString(R.string.speed ),TextToSpeech.QUEUE_ADD, null);
+            tts.speak(getString(R.string.onibus)+ dis + " " + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
+           if(veclopis != 0) {
+               tts.speak(getString(R.string.ui) + veclopis + " " + getString(R.string.speed), TextToSpeech.QUEUE_ADD, null);
+           }
             busId.setText(busNumber);
             velocity.setText(veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
@@ -871,15 +873,24 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         double mod = (mag +b)%360;
 
         float bearTo= pPosition.bearingTo(busLocation);
+        Log.i(TAG, "Bearing " + bearTo);
         //normalizeDegree(bearTo);
-
-        //mAzimuth = bearing;
+        Log.i(TAG, "Normal Azimuth " + mAzimuth);
         mAzimuth = (bearTo - mag) *-1;
-        mAzimuth += 16;
-        Math.round(-mAzimuth/ 360 + 180);
+        Log.i(TAG, "Bearing Azimuth " + mAzimuth);
+        //mAzimuth += 16;
+
         if(mAzimuth < 0f) {
             mAzimuth = 360 + mAzimuth;
+            Log.i(TAG, " Negative Bearing Azimuth " + mAzimuth);
         }
+        else if(mAzimuth > 360) {
+
+            mAzimuth = mAzimuth - 360;
+        }
+
+        Math.round(-mAzimuth/ 360 + 180);
+        Log.i(TAG, " Round Bearing Azimuth " + mAzimuth);
     }
     private float normalizeDegree(float value){
         if (value >= 0.0f && value <= 180.0f) {
