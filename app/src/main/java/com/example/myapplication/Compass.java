@@ -125,7 +125,7 @@ Object lock;
             double longitudee = Double.parseDouble(positionn[1]);*/
 
 CompassActivity ob = new CompassActivity();
-                Location loc = ob.checkProximity;
+                Location loc = ob.busLocation;
 if(loc == null)
 {
     Log.i(TAG, " awwaw");

@@ -2,20 +2,23 @@ package com.example.myapplication;
 
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.graphics.Point;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.GnssMeasurementsEvent;
 import android.location.Location;
 import android.location.LocationListener;
+import android.location.LocationManager;
+import android.media.MediaPlayer;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -41,8 +44,6 @@ import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.common.api.PendingResult;
-import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
@@ -73,8 +74,13 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
     private boolean busSelected;
     private boolean checkCheck;
+
     private Marker marker;
     private Marker markerr;
+    private Marker m;
+    private Button exitButton;
+    private MediaPlayer mp;
+
 
     @Override
     public void onInit(int status) {
@@ -91,9 +97,12 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     TextView duration;
     TextView velocity;
     TextView busId;
+    TextView tvLocation;
 
     //double
     double mAzimuth;
+    private double lati = -22.93179;
+    private double longi = -43.17963;
     private double turn;
     public double mag;
 
@@ -132,6 +141,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     //Handler
     Handler handler = new Handler();
     Handler vibratorHandler = new Handler();
+    private Handler handlerr;
 
     //Runnable
     Runnable runnable;
@@ -152,19 +162,18 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     String line;
     private String value;
     private static final String TAG = "Compass";
-    public static String currentPosition = "-22.92715, -43.25187";
+
     public static String nowLocation;
 
     //Locations
     FusedLocationProviderClient fusedLocationProviderClient;
+
+    LocationRequest mLocationRequest;
+
     private Location location;
     public Location pPosition;
-    public Location checkProximity;
-
-    private final int MY_LOCATION_REQUEST_CODE = 100;
-    private Handler handlerr;
-    private Marker m;
-//    private GoogleApiClient googleApiClient;
+    public Location busLocation = new Location("location");
+    private Location previousLocation;Location mCurrentLocation;
 
     public final static int SENDING = 1;
     public final static int CONNECTING = 2;
@@ -174,244 +183,23 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
     private static final long INTERVAL = 1000 * 10;
     private static final long FASTEST_INTERVAL = 1000 * 5;
-    Button btnFusedLocation;
-    TextView tvLocation;
-    LocationRequest mLocationRequest;
+    LocationManager locationManager;
+
     GoogleApiClient mGoogleApiClient;
-    Location mCurrentLocation;
-    String mLastUpdateTime;
-    private Location previousLocation;
-
-    protected void createLocationRequest() {
-        mLocationRequest = new LocationRequest();
-        mLocationRequest.setInterval(INTERVAL);
-        mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
-        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-    }
-
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-        if (markerr != null) {
-            markerr.remove();
-            //markerr = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
-        }
-        // Add a marker at current place, zoom and move the camera, because you deserve it ;)
-        LatLng lating = new LatLng(pPosition.getLatitude(), pPosition.getLongitude());
-        markerr = mMap.addMarker(new MarkerOptions().position(lating).title(pPosition.getLatitude() + ", " + pPosition.getLongitude()));
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-                == PackageManager.PERMISSION_GRANTED) {
-            mMap.setMyLocationEnabled(true);
-        } else {
-            // Show rationale and request permission.
-        }
-        if (checkProximity != null) {
-            float dis = checkProximity.distanceTo(pPosition);
-            mMap.moveCamera(CameraUpdateFactory.newLatLng(lating));
-            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(lating, 19));
-
-            if (marker != null) {
-                marker.remove();
-            }
-            //mMap.addMarker(new MarkerOptions().position(lat).)
-            LatLng lat = new LatLng(checkProximity.getLatitude(), checkProximity.getLongitude());
-            marker = mMap.addMarker(new MarkerOptions().position(lat).title("Your bus").icon(BitmapDescriptorFactory
-                    .defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
-        }
-    }
-
-    public void rotateMarker(final Marker marker, final float toRotation, final float st) {
-        final Handler handler = new Handler();
-        final long start = SystemClock.uptimeMillis();
-        final float startRotation = st;
-        final long duration = 1555;
-
-        final Interpolator interpolator = new LinearInterpolator();
-
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                long elapsed = SystemClock.uptimeMillis() - start;
-                float t = interpolator.getInterpolation((float) elapsed / duration);
-
-                float rot = t * toRotation + (1 - t) * startRotation;
-
-                marker.setRotation(-rot > 180 ? rot / 2 : rot);
-                if (t < 1.0) {
-                    // Post again 16ms later.
-                    handler.postDelayed(this, 16);
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onConnected(@Nullable Bundle bundle) {
-
-        Log.d(TAG, "onConnected - isConnected ...............: " + mGoogleApiClient.isConnected());
-        startLocationUpdates();
-    }
-
-    @Override
-    protected void onStart() {
-        super.onStart();
-        Log.d(TAG, "onStart fired ..............");
-        mGoogleApiClient.connect();
-    }
-
-    @Override
-    public void onConnectionSuspended(int i) {
-    }
-
-    @Override
-    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
-
-    }
-
-    protected void startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
-                Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-        Log.d(TAG, "Location update started ..............: ");
-    }
 
     LatLng previouslatLng;
 
     @Override
-    public void onLocationChanged(Location location) {
-        previouslatLng = new LatLng(location.getLatitude(), location.getLongitude());
-        Log.i(TAG,"AAAAhhhh" + pPosition.getLatitude() + ", " + pPosition.getLongitude() );
-        double rota = 0.0;
-        double startrota = 0.0;
-        if (previousLocation != null) {
-
-            rota = bearingBetweenLocations(previouslatLng, new LatLng(location.getLatitude
-                    (), location.getLongitude()));
-        }
-
-
-        rotateMarker(m, (float) rota, (float) startrota);
-
-
-        previousLocation = location;
-        Log.d(TAG, "Firing onLocationChanged..........................");
-        Log.d(TAG, "lat :" + location.getLatitude() + "long :" + location.getLongitude());
-        Log.d(TAG, "bearing :" + location.getBearing());
-
-        animateMarker(new LatLng(location.getLatitude(), location.getLongitude()), false);
-//        new ServerConnAsync(handler, MapsActivity.this,location).execute();
-
-
-    }
-    private double bearingBetweenLocations(LatLng latLng1, LatLng latLng2) {
-
-        double PI = 3.14159;
-        double lat1 = latLng1.latitude * PI / 180;
-        double long1 = latLng1.longitude * PI / 180;
-        double lat2 = latLng2.latitude * PI / 180;
-        double long2 = latLng2.longitude * PI / 180;
-
-        double dLon = (long2 - long1);
-
-        double y = Math.sin(dLon) * Math.cos(lat2);
-        double x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1)
-                * Math.cos(lat2) * Math.cos(dLon);
-
-        double brng = Math.atan2(y, x);
-
-        brng = Math.toDegrees(brng);
-        brng = (brng + 360) % 360;
-
-        return brng;
-    }
-    @Override
-    public void onStatusChanged(String provider, int status, Bundle extras) {
-    }
-
-    @Override
-    public void onProviderEnabled(String provider) {
-    }
-
-    @Override
-    public void onProviderDisabled(String provider) {
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        stopLocationUpdates();
-    }
-
-    protected void stopLocationUpdates() {
-        LocationServices.FusedLocationApi.removeLocationUpdates(
-                mGoogleApiClient, (com.google.android.gms.location.LocationListener) this);
-        Log.d(TAG, "Location update stopped .......................");
-    }
-
-    public void animateMarker(final LatLng toPosition, final boolean hideMarke) {
-        final Handler handler = new Handler();
-        final long start = SystemClock.uptimeMillis();
-        Projection proj = mMap.getProjection();
-        Point startPoint = proj.toScreenLocation(m.getPosition());
-        final LatLng startLatLng = proj.fromScreenLocation(startPoint);
-        final long duration = 5000;
-
-        final Interpolator interpolator = new LinearInterpolator();
-
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                long elapsed = SystemClock.uptimeMillis() - start;
-                float t = interpolator.getInterpolation((float) elapsed
-                        / duration);
-                double lng = t * toPosition.longitude + (1 - t)
-                        * startLatLng.longitude;
-                double lat = t * toPosition.latitude + (1 - t)
-                        * startLatLng.latitude;
-                m.setPosition(new LatLng(lat, lng));
-                pPosition.setLatitude(toPosition.latitude);
-                pPosition.setLongitude(toPosition.longitude);
-                Log.i(TAG, " i need help " + pPosition.getLongitude() + ", " + pPosition.getLongitude());
-
-                if (t < 1.0) {
-                    // Post again 16ms later.
-                    handler.postDelayed(this, 16);
-                } else {
-                    if (hideMarke) {
-                        m.setVisible(false);
-                    } else {
-                        m.setVisible(true);
-                    }
-                }
-            }
-        });
-    }
-
-
-    public void Instructions(double azimuth) {
-        if (mAzimuth < 180 && !way) {
-            atLeft = false;
-            turn = abs((azimuth));
-            // Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
-        } else if (mAzimuth > 180 && !way) {
-            atLeft = true;
-            turn = abs(azimuth);
-
-            //Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(checkProximity.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
-        }
-    }
-
-    @SuppressLint("HandlerLeak")
-    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_compass);
+       locationManager = (LocationManager)
+                getSystemService(Context.LOCATION_SERVICE);
         //Location
+
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
-
+        DebugPlace();
         createLocationRequest();
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(LocationServices.API)
@@ -428,6 +216,9 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         checkBus = findViewById(R.id.atBus);
         checkBus.setOnClickListener(this);
         checkBus.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
+
+        exitButton = findViewById(R.id.exit);
+        exitButton .setOnClickListener(this);
         //Images
         compass_img = findViewById(R.id.img_compass);
         bus = findViewById(R.id.busStop);
@@ -440,7 +231,6 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         tts = new TextToSpeech(this, this);
         //Vibrator Service
         v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        //Well, sotwFormatter
         location = MainActivity.currentLocation;
         //Stuff to be executed
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -461,49 +251,45 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
         };
     }
-
-    private void fetchLastLocation() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
-            return;
-        }
-
-        Task<Location> task = fusedLocationProviderClient.getLastLocation();
-        task.addOnSuccessListener(location -> {
-            if (location != null) {
-                if(pPosition == null)
-                    pPosition = location;
-
-                if(!checkCheck)
-                new Warming().execute();
-            }
-        });
+    @Override
+    protected void onStart() {
+        super.onStart();
+        Log.d(TAG, "onStart fired ..............");
+        mGoogleApiClient.connect();
     }
+    public void Instructions(double azimuth) {
+        if (mAzimuth < 180 && !way) {
+            atLeft = false;
+            turn = abs((azimuth));
+            // Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(busLocation.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
+        } else if (mAzimuth > 180 && !way) {
+            atLeft = true;
+            turn = abs(azimuth);
 
+            //Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(busLocation.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
+        }
+    }
     public void onClick(View v) {
         if (v == checkBus) {
+            //Se o clique for verdadeiro
             if (busAtStop) {
                 aboardBus = true;
                 Toast.makeText(this, "Você está no ônibus.", Toast.LENGTH_SHORT).show();
-            } else {
+            }
+            else {
                 Toast.makeText(this, "você possui esquizofrenia. não há nenhum ônibus.", Toast.LENGTH_SHORT).show();
 
             }
         }
-    }
-    @Override
-    protected void onStop() {
-        super.onStop();
-        handler.removeCallbacks(runnable2);
-        vibratorHandler.removeCallbacks(runnable);
-        if (haveSensor) {
-            mSensorManager.unregisterListener(this, mRotationV);
-        } else {
-            mSensorManager.unregisterListener(this, mAccelerometer);
-            mSensorManager.unregisterListener(this, mMagnetometer);
+        if(v == exitButton)
+        {
+            finish();
+            System.exit(0);
         }
-        mGoogleApiClient.disconnect();
-        Log.d(TAG, "isConnected ...............: " + mGoogleApiClient.isConnected());
+    }
+    private void DebugPlace() {
+        busLocation.setLatitude(lati);
+        busLocation.setLongitude(longi);
     }
     @Override
     protected void onResume() {
@@ -512,9 +298,8 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
             Log.d(TAG, "Location update resumed .....................");
         }
         vibratorHandler.postDelayed(runnable = () -> {
-            duration.setText(pPosition.getLatitude() + ", " + pPosition.getLongitude());
             //fetchLastLocation();
-            Log.i(TAG, " help me");
+            //Log.i(TAG, " help me");
             if (busAtStop && !aboardBus) {
                 checkCheck = true;
                 if (mAzimuth < 15 || mAzimuth > 355) {
@@ -543,9 +328,245 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         start();
         super.onResume();
     }
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopLocationUpdates();
+    }
+    @Override
+    protected void onStop() {
+        super.onStop();
+        //Stop UpdateBusInfo callback
+        handler.removeCallbacks(runnable2);
+        //Stop compass callback
+        vibratorHandler.removeCallbacks(runnable);
+        if (haveSensor) {
+            mSensorManager.unregisterListener(this, mRotationV);
+        } else {
+            mSensorManager.unregisterListener(this, mAccelerometer);
+            mSensorManager.unregisterListener(this, mMagnetometer);
+        }
+        mGoogleApiClient.disconnect();
+        Log.d(TAG, "isConnected ...............: " + mGoogleApiClient.isConnected());
+    }
+    protected void createLocationRequest() {
+        mLocationRequest = new LocationRequest();
+        mLocationRequest.setInterval(INTERVAL);
+        mLocationRequest.setFastestInterval(FASTEST_INTERVAL);
+        mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+    }
+    protected void startLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
+                Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+        Log.d(TAG, "Location update started ..............: ");
+    }
+    public void rotateMarker(final Marker marker, final float toRotation, final float st) {
+        final Handler handler = new Handler();
+        final long start = SystemClock.uptimeMillis();
+        final float startRotation = st;
+        final long duration = 1555;
 
+        final Interpolator interpolator = new LinearInterpolator();
+
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                long elapsed = SystemClock.uptimeMillis() - start;
+                float t = interpolator.getInterpolation((float) elapsed / duration);
+
+                float rot = t * toRotation + (1 - t) * startRotation;
+
+                marker.setRotation(-rot > 180 ? rot / 2 : rot);
+                if (t < 1.0) {
+                    // Post again 16ms later.
+                    handler.postDelayed(this, 16);
+                }
+            }
+        });
+    }
+    private double bearingBetweenLocations(LatLng latLng1, LatLng latLng2) {
+
+        double PI = 3.14159;
+        double lat1 = latLng1.latitude * PI / 180;
+        double long1 = latLng1.longitude * PI / 180;
+        double lat2 = latLng2.latitude * PI / 180;
+        double long2 = latLng2.longitude * PI / 180;
+
+        double dLon = (long2 - long1);
+
+        double y = Math.sin(dLon) * Math.cos(lat2);
+        double x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1)
+                * Math.cos(lat2) * Math.cos(dLon);
+
+        double brng = Math.atan2(y, x);
+
+        brng = Math.toDegrees(brng);
+        brng = (brng + 360) % 360;
+
+        return brng;
+    }
+    public void animateMarker(final LatLng toPosition, final boolean hideMarke) {
+        final Handler handler = new Handler();
+        final long start = SystemClock.uptimeMillis();
+        Projection proj = mMap.getProjection();
+        Point startPoint = proj.toScreenLocation(m.getPosition());
+        final LatLng startLatLng = proj.fromScreenLocation(startPoint);
+        final long duration = 5000;
+
+        final Interpolator interpolator = new LinearInterpolator();
+
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                long elapsed = SystemClock.uptimeMillis() - start;
+                float t = interpolator.getInterpolation((float) elapsed
+                        / duration);
+                double lng = t * toPosition.longitude + (1 - t)
+                        * startLatLng.longitude;
+                double lat = t * toPosition.latitude + (1 - t)
+                        * startLatLng.latitude;
+                m.setPosition(new LatLng(lat, lng));
+
+                if (t < 1.0) {
+                    // Post again 16ms later.
+                    handler.postDelayed(this, 16);
+                } else {
+                    if (hideMarke) {
+                        m.setVisible(false);
+                    } else {
+                        m.setVisible(true);
+                    }
+                }
+            }
+        });
+    }
+    protected void stopLocationUpdates() {
+        LocationServices.FusedLocationApi.removeLocationUpdates(
+                mGoogleApiClient, (com.google.android.gms.location.LocationListener) this);
+        Log.d(TAG, "Location update stopped .......................");
+    }
+    private void fetchLastLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
+            return;
+        }
+
+        Task<Location> task = fusedLocationProviderClient.getLastLocation();
+        task.addOnSuccessListener(location -> {
+            if (location != null) {
+                pPosition = location;
+                if(!checkCheck)
+                    new UpdateBusInfo().execute();
+            }
+        });
+    }
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+        mMap.setMapType(mMap.MAP_TYPE_SATELLITE);
+        Log.i(TAG, " HEELPPPP ");
+        //Remove existing marker, if existed
+        if (markerr != null) {
+            markerr.remove();
+            //markerr = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
+        }
+        // Add a marker at current place, zoom and move the camera
+        if (pPosition != null) {
+            Log.i(TAG, " HELP ME ");
+            LatLng lating = new LatLng(pPosition.getLatitude(), pPosition.getLongitude());
+            markerr = mMap.addMarker(new MarkerOptions().position(lating).title(lating.latitude + ", " + lating.longitude));
+            mMap.moveCamera(CameraUpdateFactory.newLatLng(lating));
+            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(lating, 19));
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED) {
+            mMap.setMyLocationEnabled(true);
+        } else {
+            // Show rationale and request permission.
+        }
+        if (busLocation != null) {
+            busLocation.setLatitude(lati);
+            busLocation.setLongitude(longi);
+
+            //Remove existing bus marker
+            if (marker != null) {
+                marker.remove();
+            }
+            LatLng lat = new LatLng(busLocation.getLatitude(), busLocation.getLongitude());
+            marker = mMap.addMarker(new MarkerOptions().position(lat).title("Your bus").icon(BitmapDescriptorFactory
+                    .defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+        }
+    }
+    @Override
+    public void onConnected(@Nullable Bundle bundle) {
+
+        Log.d(TAG, "onConnected - isConnected ...............: " + mGoogleApiClient.isConnected());
+        startLocationUpdates();
+    }
+    @Override
+    public void onLocationChanged(Location location) {
+        previouslatLng = new LatLng(location.getLatitude(), location.getLongitude());
+        pPosition = location;
+        duration.setText( pPosition.getLatitude() + ", " + pPosition.getLongitude());
+        double rota = 0.0;
+        double startrota = 0.0;
+        if (previousLocation != null) {
+
+            rota = bearingBetweenLocations(previouslatLng, new LatLng(location.getLatitude
+                    (), location.getLongitude()));
+        }
+
+
+        //rotateMarker(m, (float) rota, (float) startrota);
+
+        previousLocation = location;
+        Log.d(TAG, "Firing onLocationChanged..........................");
+        Log.d(TAG, "lat :" + location.getLatitude() + "long :" + location.getLongitude());
+        Log.d(TAG, "bearing :" + location.getBearing());
+
+        animateMarker(new LatLng(location.getLatitude(), location.getLongitude()), false);
+        //new ServerConnAsync(handler, CompassActivity.this,location).execute();
+
+    }
+    @Override
+    public void onStatusChanged(String provider, int status, Bundle extras) {
+
+    }
+    @Override
+    public void onConnectionSuspended(int i) {
+
+    }
+    @Override
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
+    @Override
+    public void onProviderEnabled(String provider) {
+
+    }
+    @Override
+    public void onProviderDisabled(String provider) {
+
+    }
+
+    public void playMusic(String musicFile)
+    {
+        int resID = getResources().getIdentifier(musicFile, "raw", getPackageName());
+        mp = MediaPlayer.create(this, resID);
+        mp.start();
+    }
     //TODO: Checking closest bus in the line
-    public class Warming extends AsyncTask<Void, Void, Void> {
+    public class UpdateBusInfo extends AsyncTask<Void, Void, Void> {
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
@@ -602,22 +623,18 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                                distanceLng[i] = abs(abs(longitudes[i]) - abs(pPosition.getLongitude()));
                            //Sum of lat and lng
                                calculations[i] = distanceLat[i] + distanceLng[i];
-                           //Bus Location
-                                checkProximity = new Location("abc");
-                                //checkProximity.setLatitude(latitudes[i]);
-                                //checkProximity.setLongitude(longitudes[i]);
                            }
-                       else{
-                           if(algorithmBus[i] == busNumber)
-                           {
-                               busNumber = algorithmBus[i];
-                               checkProximity.setLatitude(latitudes[i]);
-                               checkProximity.setLongitude(longitudes[i]);
-                               veclopis=speed[i];
+                            else{
+                                if(algorithmBus[i] == busNumber)
+                                {
+                               //busNumber = algorithmBus[i];
+                               busLocation.setLatitude(latitudes[i]);
+                               busLocation.setLongitude(longitudes[i]);
+                               veclopis = speed[i];
                                nowLocation = latitudes[i] + "," + longitudes[i];
 
-                           }
-                       }
+                                }
+                                }
                     }
                     double great = Arrays.stream(calculations).min().getAsDouble();
                    if(busSelected == false) {
@@ -630,13 +647,14 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
                            }
                        }
-                       checkProximity.setLatitude(latitudes[index]);
-                       checkProximity.setLongitude(longitudes[index]);
+                       busLocation = new Location("abc");
+                       busLocation.setLatitude(latitudes[index]);
+                       busLocation.setLongitude(longitudes[index]);
                    }
                        //Bus distance to user
-                       distance = (int) checkProximity.distanceTo(pPosition);
+                       distance = (int) busLocation.distanceTo(pPosition);
 
-                       Log.i(TAG, "Bus location at warming: " + checkProximity + "Stop location at warming: " + currentPosition);
+                       Log.i(TAG, "Bus location at warming: " + busLocation + "Stop location at warming: " + pPosition);
 
                 } catch (final JSONException e) {
                     Log.e(TAG, "Json parsing error: " + e.getMessage());
@@ -669,8 +687,8 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
            // Dismiss the progress dialog
             if (pd.isShowing())
                 pd.dismiss();
-           DebugPlace(-22.93177, -43.17963);
-            dis = Math.round(checkProximity.distanceTo(pPosition));
+            DebugPlace();
+            dis = Math.round(busLocation.distanceTo(pPosition));
             if(!aboardBus) {
                 if (dis < 50.0f) {
                     busClose = true;
@@ -686,9 +704,19 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                         //Entrance instructions
                         if (veclopis == 0 && !busAtStop) {
                             busAtStop = true;
+                            playMusic("busready");
+                            mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener()
+                            {
+                                @Override
+                                public void onCompletion(MediaPlayer mp)
+                                {
+                                    
+                                    tts.speak("Seu ônibus parou. Siga as próximas instruções!", TextToSpeech.QUEUE_ADD, null);
+
+                                }
+                            });
                             tts.setLanguage(Locale.forLanguageTag("pt"));
-                            tts.speak("Seu ônibus parou. Siga as próximas instruções!", TextToSpeech.QUEUE_ADD, null);
-                        }
+                               }
                         //Aboard the bus
                         if (dis < 2) {
                             aboardBus = true;
@@ -714,12 +742,14 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                 }
             }
             tts.setLanguage(Locale.forLanguageTag("pt"));
-            tts.speak(getString(R.string.onibus)+ dis + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
-            tts.speak(getString(R.string.ui) + veclopis + getString(R.string.speed ),TextToSpeech.QUEUE_ADD, null);
+            tts.speak(getString(R.string.onibus)+ dis + " " + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
+           if(veclopis != 0) {
+               tts.speak(getString(R.string.ui) + veclopis + " " + getString(R.string.speed), TextToSpeech.QUEUE_ADD, null);
+           }
             busId.setText(busNumber);
             velocity.setText(veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
-            Toast.makeText(getApplicationContext(),"LOCATION:"+ pPosition.getLatitude() +", " + pPosition.getLongitude() + " BUS: "+ checkProximity.getLatitude() + ", " + checkProximity.getLongitude(), Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(),"LOCATION:"+ pPosition.getLatitude() +", " + pPosition.getLongitude() + " BUS: "+ busLocation.getLatitude() + ", " + busLocation.getLongitude(), Toast.LENGTH_LONG).show();
             SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                     .findFragmentById(R.id.map);
             mapFragment.getMapAsync(CompassActivity.this);
@@ -728,12 +758,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         }
     }
 
-    private void DebugPlace(double latitude, double longitude) {
-        checkProximity.setLatitude(-22.93179);
-        checkProximity.setLongitude(-43.17963);
-    }
-
-    //TODO: Navigations time and distance
+    //TODO: Navigation's time and distance
     private class busDriving extends AsyncTask<Void, Void, Void> {
         @Override
         protected void onPreExecute() {
@@ -750,7 +775,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         protected Void doInBackground(Void... arg0) {
             Https sh = new Https();
             // Making a request to url and getting response
-            String jsonStr = sh.makeServiceCall("https://maps.googleapis.com/maps/api/directions/json?origin=" + nowLocation + "&destination=" + currentPosition + "&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag");
+            String jsonStr = sh.makeServiceCall("https://maps.googleapis.com/maps/api/directions/json?origin=" + nowLocation + "&destination=" + pPosition + "&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag");
             if (jsonStr != null) {
                 try {
                     JSONObject jsonObj = new JSONObject(jsonStr);
@@ -833,40 +858,65 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
             System.arraycopy(event.values, 0, mLastAccelerometer, 0, event.values.length);
             mLastAccelerometerSet = true;
         } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-
-
-
             System.arraycopy(event.values, 0, mLastMagnetometer, 0, event.values.length);
             mLastMagnetometerSet = true;
         }
-        mag = mAzimuth;
+
         if (mLastAccelerometerSet && mLastMagnetometerSet) {
             SensorManager.getRotationMatrix(rMat, null, mLastAccelerometer, mLastMagnetometer);
             SensorManager.getOrientation(rMat, orientation);
             mAzimuth = (int) (Math.toDegrees(SensorManager.getOrientation(rMat, orientation)[0]) + 360) % 360;
         }
-        if(checkProximity != null){
-            DebugPlace(-22.93177, -43.17963);
-            toBus(pPosition.getLatitude(), pPosition.getLongitude(), checkProximity.getLatitude(), checkProximity.getLongitude());
+        mag = mAzimuth;
+
+        if(busLocation != null && pPosition != null){
+            busLocation.setLatitude(lati);
+            busLocation.setLongitude(longi);
+            //Log.i(TAG, "check " + busLocation.getLatitude());
+            toBus(pPosition.getLatitude(), pPosition.getLongitude(), busLocation.getLatitude(), busLocation.getLongitude());
         }
         mAzimuth = Math.round(mAzimuth);
         compass_img.setRotation(-Math.round(mAzimuth));
 
         txt_compass.setText(mAzimuth + "° ");
     }
-
-    public void toBus(double startLat, double startLng, double endLat, double endLng)
-    {
-        double angle = Math.atan((endLat - startLat)/(endLng - startLng));
+    public void toBus(double startLat, double startLng, double endLat, double endLng) {
+        double angle = Math.atan(abs((endLat - startLat))/abs((endLng - startLng)));
         double b = 90 - angle;
         double mod = (mag +b)%360;
-        mAzimuth = mod;
+
+        float bearTo= pPosition.bearingTo(busLocation);
+        Log.i(TAG, "Bearing " + bearTo);
+        //normalizeDegree(bearTo);
+        Log.i(TAG, "Normal Azimuth " + mAzimuth);
+        mAzimuth = (bearTo - mag) *-1;
+        Log.i(TAG, "Bearing Azimuth " + mAzimuth);
+        //mAzimuth += 16;
+
+        if(mAzimuth < 0f) {
+            mAzimuth = 360 + mAzimuth;
+            Log.i(TAG, " Negative Bearing Azimuth " + mAzimuth);
+        }
+        else if(mAzimuth > 360) {
+
+            mAzimuth = mAzimuth - 360;
+        }
+
+        Math.round(-mAzimuth/ 360 + 180);
+        Log.i(TAG, " Round Bearing Azimuth " + mAzimuth);
+    }
+    private float normalizeDegree(float value){
+        if (value >= 0.0f && value <= 180.0f) {
+            return value;
+        } else {
+            return(value + 360) % 360;
+        }
+
     }
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
     }
-
     public void start() {
         if (mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) == null) {
             if ((mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) || (mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) == null)) {
@@ -884,7 +934,6 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
             haveSensor = mSensorManager.registerListener(this, mRotationV, SensorManager.SENSOR_DELAY_UI);
         }
     }
-
     public void noSensorsAlert(){
         AlertDialog.Builder alertDialog = new AlertDialog.Builder(this);
         alertDialog.setMessage("Your device doesn't support the Compass.")
@@ -896,6 +945,4 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                 });
         alertDialog.show();
     }
-
-
 }

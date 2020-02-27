@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
+import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -85,6 +86,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
     ArrayList<HashMap<String, String>> contactList;
     Locale locale = new Locale("pt", "BR");
     public TextToSpeech tts;
+    private MediaPlayer mp;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -102,7 +104,9 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
         //view = findViewById(R.id.web);
         contactList = new ArrayList<>();
         //Locations utils
-
+        int resID = getResources().getIdentifier("startsound", "raw", getPackageName());
+        mp = MediaPlayer.create(getApplicationContext(), resID);
+        mp.start();
         //Routes list overview
         tts =new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
@@ -113,7 +117,15 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
                             || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                         Log.e("error", "This Language is not supported");
                     } else {
-                        tts.speak("Olá! Bem vindo ao S.I.M, o sistema inteligente de mobilidade! Clique no botão começar em baixo da tela!", TextToSpeech.QUEUE_FLUSH, null);
+
+                        mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener()
+                        {
+                            @Override
+                            public void onCompletion(MediaPlayer mp)
+                            {
+                                tts.speak("Olá! Bem vindo ao S.I.M, o sistema inteligente de mobilidade! Clique no botão começar em baixo da tela!", TextToSpeech.QUEUE_FLUSH, null);
+                            }
+                        });
 
                     }
                 } else {
@@ -171,6 +183,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
         fetchLastLocation();
     }
+
     private void fetchLastLocation() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, REQUEST_CODE);
@@ -198,11 +211,16 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
     }
     public void onClick(View v) {
         if (v == myButton) {
+            tts.shutdown();
             fetchLastLocation();
             Intent on = new Intent(this,CompassActivity.class);
             on.putExtra("bubus", voice);
             startActivity(on);
             startVoiceRecognizitionActivity();
+            int resID = getResources().getIdentifier("whoosh", "raw", getPackageName());
+            mp = MediaPlayer.create(getApplicationContext(), resID);
+            mp.start();
+
 //voice = "Maracana";
             //new GetContacts().execute();
         }

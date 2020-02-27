@@ -6,11 +6,28 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:srcCompat="@color/sim_blue"
+        tools:layout_editor_absoluteY="25dp" />
+
+    <ImageView
+        android:id="@+id/imageView2"
+        android:layout_width="348dp"
+        android:layout_height="333dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:srcCompat="@drawable/sim"
+        tools:layout_editor_absoluteY="25dp" />
+
     <Button
         android:id="@+id/speak"
         android:layout_width="0dp"
         android:layout_height="95dp"
-        android:backgroundTint="@color/colorAccent"
+        android:backgroundTint="@color/color"
         android:fontFamily="sans-serif-condensed-medium"
         android:text="@string/start"
         android:textColor="@color/common_google_signin_btn_text_dark_default"
@@ -47,5 +64,6 @@
             android:id="@+id/list"
             android:layout_width="fill_parent"
             android:layout_height="wrap_content" />
+
     </RelativeLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
