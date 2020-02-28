@@ -7,16 +7,18 @@
     tools:context=".MainActivity">
 
     <ImageView
-        android:id="@+id/imageView"
+        android:id="@+id/bb"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:visibility="visible"
         app:srcCompat="@color/sim_blue"
         tools:layout_editor_absoluteY="25dp" />
 
     <ImageView
-        android:id="@+id/imageView2"
+        android:id="@+id/sim"
         android:layout_width="348dp"
         android:layout_height="333dp"
+        android:visibility="visible"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"

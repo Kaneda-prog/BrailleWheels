@@ -8,16 +8,15 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Point;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.location.GnssMeasurementsEvent;
 import android.location.Location;
 import android.location.LocationListener;
-import android.location.LocationManager;
 import android.media.MediaPlayer;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -27,6 +26,7 @@ import android.os.SystemClock;
 import android.os.Vibrator;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.animation.Interpolator;
@@ -52,6 +52,7 @@ import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.Projection;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptor;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
@@ -72,7 +73,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         OnMapReadyCallback, GoogleApiClient.ConnectionCallbacks, GoogleApiClient.OnConnectionFailedListener, View.OnClickListener, SensorEventListener, TextToSpeech.OnInitListener {
 
 
-    private boolean busSelected;
+    private boolean busSelected = false;
     private boolean checkCheck;
 
     private Marker marker;
@@ -89,20 +90,21 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     private GoogleMap mMap;
     //ImageViews
     ImageView compass_img;
-    ImageView bus;
+    ImageView busStop;
+    ImageView busGo;
+    ImageView busAboard;
 
     //TextView
     TextView txt_compass;
     TextView dist;
     TextView duration;
     TextView velocity;
-    TextView busId;
-    TextView tvLocation;
+    TextView lineView;
 
     //double
     double mAzimuth;
-    private double lati = -22.93179;
-    private double longi = -43.17963;
+    private double lati = -22.93184;
+    private double longi = -43.17985;
     private double turn;
     public double mag;
 
@@ -160,6 +162,11 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     String busNumber;
     String distValue;
     String line;
+    static public String stops1;
+    static public String stops2;
+    static public String stops3;
+    static public String money;
+    static public String point1;
     private String value;
     private static final String TAG = "Compass";
 
@@ -183,7 +190,6 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
     private static final long INTERVAL = 1000 * 10;
     private static final long FASTEST_INTERVAL = 1000 * 5;
-    LocationManager locationManager;
 
     GoogleApiClient mGoogleApiClient;
 
@@ -193,48 +199,53 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_compass);
-       locationManager = (LocationManager)
-                getSystemService(Context.LOCATION_SERVICE);
+        //Intent
+        Intent intent = getIntent();
+        line = intent.getStringExtra("bubus");
+        line = "coconut 133";
+        line = line.replaceAll("[^0-9.]", "");
+        stops1 = intent.getStringExtra("stops1");
+        money = intent.getStringExtra("price");
+        point1 = intent.getStringExtra("firstEtape");
         //Location
-
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-        fetchLastLocation();
-        DebugPlace();
-        createLocationRequest();
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addApi(LocationServices.API)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
                 .build();
 
-        Intent intent = getIntent();
-        line = intent.getStringExtra("bubus");
-        line = "coconut 133";
-        line = line.replaceAll("[^0-9.]", "");
+
         //VIEWS
-        //Aboard Bus button
+        //Butons
         checkBus = findViewById(R.id.atBus);
         checkBus.setOnClickListener(this);
         checkBus.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
-
         exitButton = findViewById(R.id.exit);
         exitButton .setOnClickListener(this);
         //Images
         compass_img = findViewById(R.id.img_compass);
-        bus = findViewById(R.id.busStop);
+        busStop = findViewById(R.id.busStop);
+        busAboard = findViewById(R.id.busAt);
+        busGo   = findViewById(R.id.busGo);
         //Text
-        busId = findViewById(R.id.busId);
         dist = findViewById(R.id.distance);
         duration = findViewById(R.id.duration);
         velocity = findViewById(R.id.veclopis);
         txt_compass = findViewById(R.id.txt_azimuth);
+        lineView = findViewById(R.id.line);
         tts = new TextToSpeech(this, this);
         //Vibrator Service
         v = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         location = MainActivity.currentLocation;
         //Stuff to be executed
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        bus.setVisibility(View.INVISIBLE);
+        busStop.setVisibility(View.INVISIBLE);
+        busAboard.setVisibility(View.INVISIBLE);
+        busGo.setVisibility(View.INVISIBLE);
+        fetchLastLocation();
+        DebugPlace();
+        createLocationRequest();
 
         handlerr = new Handler() {
             @Override
@@ -257,23 +268,28 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         Log.d(TAG, "onStart fired ..............");
         mGoogleApiClient.connect();
     }
+    public void intent()
+    {
+        Intent au = new Intent(getApplicationContext(), AboardBus.class);
+        startActivity(au);
+    }
     public void Instructions(double azimuth) {
         if (mAzimuth < 180 && !way) {
             atLeft = false;
             turn = abs((azimuth));
-            // Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + "graus a esquerda.Ande " + Math.round(busLocation.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
-        } else if (mAzimuth > 180 && !way) {
+              }
+        else if (mAzimuth > 180 && !way) {
             atLeft = true;
             turn = abs(azimuth);
 
-            //Toast.makeText(getApplicationContext(), "Vire " + Math.round(turn) + " graus a direita.Ande " + Math.round(busLocation.distanceTo(pPosition)) + " meters.", Toast.LENGTH_LONG).show();
-        }
+             }
     }
     public void onClick(View v) {
         if (v == checkBus) {
             //Se o clique for verdadeiro
             if (busAtStop) {
                 aboardBus = true;
+                intent();
                 Toast.makeText(this, "Você está no ônibus.", Toast.LENGTH_SHORT).show();
             }
             else {
@@ -287,6 +303,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
             System.exit(0);
         }
     }
+    //TODO: remove debug lixeira location
     private void DebugPlace() {
         busLocation.setLatitude(lati);
         busLocation.setLongitude(longi);
@@ -480,11 +497,19 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
             markerr.remove();
             //markerr = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN)));
         }
+        int height = 100;
+        int width = 100;
+        Bitmap b = BitmapFactory.decodeResource(getResources(), R.drawable.blind);
+        Bitmap smallMarker = Bitmap.createScaledBitmap(b, width, height, false);
+        BitmapDescriptor smallMarkerIcon = BitmapDescriptorFactory.fromBitmap(smallMarker);
+        Bitmap bb = BitmapFactory.decodeResource(getResources(), R.drawable.bubs);
+        Bitmap smallMarkerr = Bitmap.createScaledBitmap(bb, width, height, false);
+        BitmapDescriptor smallMarkerIconn = BitmapDescriptorFactory.fromBitmap(smallMarkerr);
         // Add a marker at current place, zoom and move the camera
         if (pPosition != null) {
             Log.i(TAG, " HELP ME ");
             LatLng lating = new LatLng(pPosition.getLatitude(), pPosition.getLongitude());
-            markerr = mMap.addMarker(new MarkerOptions().position(lating).title(lating.latitude + ", " + lating.longitude));
+            markerr = mMap.addMarker(new MarkerOptions().position(lating).title(lating.latitude + ", " + lating.longitude).icon(smallMarkerIcon));
             mMap.moveCamera(CameraUpdateFactory.newLatLng(lating));
             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(lating, 19));
         }
@@ -498,13 +523,12 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
             busLocation.setLatitude(lati);
             busLocation.setLongitude(longi);
 
-            //Remove existing bus marker
+            //Remove existing busStop marker
             if (marker != null) {
                 marker.remove();
             }
             LatLng lat = new LatLng(busLocation.getLatitude(), busLocation.getLongitude());
-            marker = mMap.addMarker(new MarkerOptions().position(lat).title("Your bus").icon(BitmapDescriptorFactory
-                    .defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
+            marker = mMap.addMarker(new MarkerOptions().position(lat).title("Your busStop").icon(smallMarkerIconn));
         }
     }
     @Override
@@ -565,7 +589,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         mp = MediaPlayer.create(this, resID);
         mp.start();
     }
-    //TODO: Checking closest bus in the line
+    //TODO: Checking closest busStop in the line
     public class UpdateBusInfo extends AsyncTask<Void, Void, Void> {
         @Override
         protected void onPreExecute() {
@@ -641,6 +665,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                        for (int i = 0; i < calculations.length; i++) {
                            if (calculations[i] == great) {
                                index = i;
+                               Log.i(TAG, "Bus at order: "+ index + "is the closest.");
                                busNumber = algorithmBus[index];
                                veclopis = speed[index];
                                nowLocation = latitudes[index] + "," + longitudes[index];
@@ -651,10 +676,8 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                        busLocation.setLatitude(latitudes[index]);
                        busLocation.setLongitude(longitudes[index]);
                    }
-                       //Bus distance to user
-                       distance = (int) busLocation.distanceTo(pPosition);
 
-                       Log.i(TAG, "Bus location at warming: " + busLocation + "Stop location at warming: " + pPosition);
+                       Log.i(TAG, "Bus location at warming: " + busLocation.getLatitude() + ", " + busLocation.getLongitude() + "Stop location at warming: " + pPosition.getLatitude() + ", " + pPosition.getLongitude());
 
                 } catch (final JSONException e) {
                     Log.e(TAG, "Json parsing error: " + e.getMessage());
@@ -691,12 +714,10 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
             dis = Math.round(busLocation.distanceTo(pPosition));
             if(!aboardBus) {
                 if (dis < 50.0f) {
+                    busGo.setVisibility(View.VISIBLE);
                     busClose = true;
-                    //float val = Math.round(dis/veclopis);
-                    //duration.setText("Tempo de chegada: " + val + ".");
-                    //tts.setLanguage(Locale.forLanguageTag("pt"));
-                    //tts.speak("Tempo de chegada: " + val,TextToSpeech.QUEUE_ADD, null);
-                    if (dis < 15) {
+
+                    if (dis < 19) {
                         if (veclopis != 0) {
                             tts.speak("Espere o ônibus parar", TextToSpeech.QUEUE_ADD, null);
                             busAtStop = false;
@@ -710,45 +731,49 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
                                 @Override
                                 public void onCompletion(MediaPlayer mp)
                                 {
-                                    
+                                    tts.setLanguage(Locale.forLanguageTag("pt"));
                                     tts.speak("Seu ônibus parou. Siga as próximas instruções!", TextToSpeech.QUEUE_ADD, null);
 
                                 }
                             });
-                            tts.setLanguage(Locale.forLanguageTag("pt"));
+
                                }
-                        //Aboard the bus
+                        //Aboard the busStop
                         if (dis < 2) {
                             aboardBus = true;
+                            intent();
                         }
                     }
                     else {
-                        busSelected = false;
+                        //float val = Math.round(dis/veclopis);
+                        //duration.setText("Tempo de chegada: " + val + ".");
+                        //tts.setLanguage(Locale.forLanguageTag("pt"));
+                        //tts.speak("Tempo de chegada: " + val,TextToSpeech.QUEUE_ADD, null);
+                        busAtStop = false;
                         tts.setLanguage(Locale.forLanguageTag("pt"));
                         tts.speak("Há um ônibus perto. Sinalize para o " + busNumber, TextToSpeech.QUEUE_ADD, null);
 
                     }
                 }
                 else {
+                    busStop.setVisibility(View.INVISIBLE);
+                    busGo.setVisibility(View.INVISIBLE);
                     //new busDriving().execute();
                 }
                 if(busAtStop) {
-                    bus.setVisibility(View.VISIBLE);
+                    busStop.setVisibility(View.VISIBLE);
+                    busGo.setVisibility(View.INVISIBLE);
                     busSelected = true;
                 }
                 if(!busAtStop) {
-                    bus.setVisibility(View.INVISIBLE);
+                    busStop.setVisibility(View.INVISIBLE);
                     busSelected = false;
                 }
             }
-            tts.setLanguage(Locale.forLanguageTag("pt"));
-            tts.speak(getString(R.string.onibus)+ dis + " " + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
-           if(veclopis != 0) {
-               tts.speak(getString(R.string.ui) + veclopis + " " + getString(R.string.speed), TextToSpeech.QUEUE_ADD, null);
-           }
-            busId.setText(busNumber);
-            velocity.setText(veclopis + getString(R.string.speed ));
+            lineView.setText(busNumber + " --- "+ line);
+            velocity.setText("Dirige a " + veclopis + getString(R.string.speed ));
             dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
+            sayInfo();
             Toast.makeText(getApplicationContext(),"LOCATION:"+ pPosition.getLatitude() +", " + pPosition.getLongitude() + " BUS: "+ busLocation.getLatitude() + ", " + busLocation.getLongitude(), Toast.LENGTH_LONG).show();
             SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                     .findFragmentById(R.id.map);
@@ -757,7 +782,27 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
         }
     }
+    public void sayInfo()
+    {
+        tts.setLanguage(Locale.forLanguageTag("pt"));
+        if(veclopis != 0) {
+            tts.speak(getString(R.string.ui) + veclopis + " " + getString(R.string.speed), TextToSpeech.QUEUE_ADD, null);
+        }
 
+        tts.speak(getString(R.string.onibus)+ dis + " " + getString(R.string.metro),TextToSpeech.QUEUE_ADD, null);
+
+    }
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_HEADSETHOOK){
+            sayInfo();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+    //<a href="https://www.freepik.com/free-photos-vectors/design">Design vector created by freepik - www.freepik.com</a> COMPASS
+    ////<a href="https://www.freepik.com/free-photos-vectors/design">Design vector created by freepik - www.freepik.com</a>//<a href="https://www.freepik.com/free-photos-vectors/design">Design vector created by freepik - www.freepik.com</a>
+    //Icons made by <a href="https://www.flaticon.com/<?=_('authors/')?>freepik" title="Freepik">Freepik</a> from <a href="https://www.flaticon.com/" title="Flaticon"> www.flaticon.com</a>
     //TODO: Navigation's time and distance
     private class busDriving extends AsyncTask<Void, Void, Void> {
         @Override
@@ -845,8 +890,6 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
         }
     }
-
-
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
@@ -870,9 +913,9 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         mag = mAzimuth;
 
         if(busLocation != null && pPosition != null){
+            //TODO: remove debug lixeira location
             busLocation.setLatitude(lati);
             busLocation.setLongitude(longi);
-            //Log.i(TAG, "check " + busLocation.getLatitude());
             toBus(pPosition.getLatitude(), pPosition.getLongitude(), busLocation.getLatitude(), busLocation.getLongitude());
         }
         mAzimuth = Math.round(mAzimuth);

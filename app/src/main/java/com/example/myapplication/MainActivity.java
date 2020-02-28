@@ -28,6 +28,7 @@ import android.webkit.WebViewClient;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
@@ -62,11 +63,12 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
     public String latLng;
     public String info;
     public TextView title;
+    public ImageView backrgound;
+    public ImageView sim;
     public ListView myList;
     public Button myButton;
     public Switch cool;
-    public WebView view;
-    PlacesClient placesClient;
+
 
     public static String BUS_NUMBER;
     public String BUS_STOP;
@@ -78,30 +80,33 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
     FusedLocationProviderClient fusedLocationProviderClient;
 
     ProgressDialog pd;
-    private static final int SYSTEM_ALERT_WINDOW_PERMISSION = 3001;
     static public JSONArray json_object;
     boolean enjoy = false;
-    //-22.9596397,-43.2011472
-    JSONObject leObject;
     ArrayList<HashMap<String, String>> contactList;
     Locale locale = new Locale("pt", "BR");
     public TextToSpeech tts;
     private MediaPlayer mp;
+    @Override
+    public void onInit(int status) {
 
+    }
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Locale.setDefault(locale);
+        setContentView(R.layout.activity_main);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !Settings.canDrawOverlays(this)) {
             askPermission();
         }
-        setContentView(R.layout.activity_main);
+        Locale.setDefault(locale);
         myList = findViewById(R.id.list);
         title = findViewById(R.id.title);
+        backrgound = findViewById(R.id.bb);
+        sim = findViewById(R.id.sim);
+        backrgound.setVisibility(View.VISIBLE);
+        sim.setVisibility(View.VISIBLE);
         //Set button
         myButton = findViewById(R.id.speak);
         myButton.setOnClickListener(this);
-        //view = findViewById(R.id.web);
         contactList = new ArrayList<>();
         //Locations utils
         int resID = getResources().getIdentifier("startsound", "raw", getPackageName());
@@ -137,36 +142,32 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 Intent in = new Intent(getApplicationContext(), CompassActivity.class);
+                TextView money = view.findViewById(R.id.price);
                 TextView firstEtape = view.findViewById(R.id.stopLocation0);
+                TextView firstStops = view.findViewById(R.id.stopNum0);
                 in.putExtra("firstStop",firstEtape.getText());
+                in.putExtra("price", money.getText());
+                in.putExtra("stops1",firstStops.getText());
+                in.putExtra("bubus", voice);
                 BUS_NUMBER = firstEtape.toString();
                 if(view.findViewById(R.id.stopLocation1) != null)
                 {
                     TextView secondEtape = view.findViewById(R.id.stopLocation1);
+                    TextView secondStops = view.findViewById(R.id.stopNum1);
                     in.putExtra("sncStop",secondEtape.getText());
+                    in.putExtra("stops2",secondStops.getText());
                     if(view.findViewById(R.id.stopLocation1) != null) {
                         TextView thirdEtape = view.findViewById(R.id.stopLocation2);
+                        TextView thirdStops = view.findViewById(R.id.stopNum2);
+                        in.putExtra("stops3",thirdStops.getText());
                         in.putExtra("thdStop",thirdEtape.getText());
                     }
                 }
+
                 Log.e(TAG," A POTATO "+ firstEtape.getText());
                 curRoute = position +1;
                 Log.i(TAG, "This " + curRoute);
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                    startService(new Intent(MainActivity.this, FloatingOverMapIconService.class));
-                    finish();
-                    startActivity(in);
-                } else if (Settings.canDrawOverlays(getApplicationContext())) {
-                    startService(new Intent(MainActivity.this, FloatingOverMapIconService.class));
-                    finish();
-                    startActivity(in);
-                } else {
-                    askPermission();
-                    Toast.makeText(getApplicationContext(), "You need System Alert Window Permission to do this", Toast.LENGTH_SHORT).show();
-                    startActivity(in);
-                }
-
-
+                startActivity(in);
             }
         });
 
@@ -213,22 +214,19 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
         if (v == myButton) {
             tts.shutdown();
             fetchLastLocation();
-            Intent on = new Intent(this,CompassActivity.class);
+            /*Intent on = new Intent(this,CompassActivity.class);
             on.putExtra("bubus", voice);
-            startActivity(on);
+            startActivity(on);*/
             startVoiceRecognizitionActivity();
             int resID = getResources().getIdentifier("whoosh", "raw", getPackageName());
             mp = MediaPlayer.create(getApplicationContext(), resID);
             mp.start();
-
-//voice = "Maracana";
             //new GetContacts().execute();
         }
     }
 
     public void voiceinputbuttons() {
         myButton = findViewById(R.id.speak);
-
     }
 
     public void startVoiceRecognizitionActivity() {
@@ -246,20 +244,16 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
             ArrayList<String> matches = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
             voice = matches.get(0);
             Log.i(TAG, "You said " + voice);
-            Intent on = new Intent(this,CompassActivity.class);
+            /*Intent on = new Intent(this,CompassActivity.class);
             on.putExtra("bubus", voice);
-            startActivity(on);
+            startActivity(on);*/
             voice.replaceAll("","+");
             voice.replaceAll("-","+");
+            backrgound.setVisibility(View.INVISIBLE);
+            sim.setVisibility(View.INVISIBLE);
             new GetContacts().execute();
         }
     }
-
-    @Override
-    public void onInit(int status) {
-
-    }
-
 
     private class GetContacts extends AsyncTask<Void, Void, Void> {
         public int baldiacao[];
@@ -283,7 +277,6 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
         protected Void doInBackground(Void... arg0) {
             Https sh = new Https();
 
-            // Making a request to url and getting response
             String jsonStr = sh.makeServiceCall("https://maps.googleapis.com/maps/api/directions/json?origin="+latLng+"&destination="+voice+"%2CRio+de+Janeiro&mode=transit&alternatives=true&transit_mode=bus&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag");
 
 
@@ -365,6 +358,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
                                             String color = line.getString("color");
                                             String busName = vehicle.getString("name");
                                             stopsNum = details.getString("num_stops");
+                                            contact.put("stopsNum"+ nm, stopsNum);
                                             contact.put("depStopLocation" + nm, depStopLocation);
                                             contact.put("busNumber" + nm, busNumber +" ");
                                             contact.put("busName" + nm, busName);
@@ -373,10 +367,10 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
                                             if(nm > 0) {
 
                                             }
-                                            Log.e(TAG, "Number of bus stops is " + stopsNum);
-                                            Log.wtf(TAG, "We have added " + nm +" bus jumps, that's right.");
-                                            Log.i(TAG, "The starting bus Stop for step " + e + " is at " + depStopLocation);
-                                            Log.i(TAG, "The ending bus Stop for step " + e + " is at " + arStopLocation);
+                                            Log.e(TAG, "Number of busStop stops is " + stopsNum);
+                                            Log.wtf(TAG, "We have added " + nm +" busStop jumps, that's right.");
+                                            Log.i(TAG, "The starting busStop Stop for step " + e + " is at " + depStopLocation);
+                                            Log.i(TAG, "The ending busStop Stop for step " + e + " is at " + arStopLocation);
                                         }
                                         Log.i(TAG,"For loop finished." );
 
@@ -463,9 +457,13 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
             ListAdapter adapter = new SimpleAdapter(
                     MainActivity.this, contactList,
                     R.layout.list_item, new String[]{"totalTime","duration",
-                    "price","distance","busNumber0","busNumber1","busNumber2","val","stopsNum0", "depStopLocation0","depStopLocation1","depStopLocation2" }, new int[]{R.id.totalTime,
-                    R.id.duration, R.id.price, R.id.distance, R.id.busNumber0, R.id.busNumber1, R.id.busNumber2, R.id.route, R.id.stops, R.id.stopLocation0,R.id.stopLocation1,R.id.stopLocation2});
+                    "price","distance","busNumber0","busNumber1","busNumber2","val","stopsNum0", "depStopLocation0","depStopLocation1","depStopLocation2","stopsNum0","stopsNum1","stopsNum2"}, new int[]{R.id.totalTime,
+                    R.id.duration, R.id.price, R.id.distance, R.id.busNumber0, R.id.busNumber1, R.id.busNumber2, R.id.route, R.id.stops, R.id.stopLocation0,R.id.stopLocation1,R.id.stopLocation2,R.id.stopNum0,R.id.stopNum1,R.id.stopNum2});
             myList.setAdapter(adapter);
+            Toast.makeText(getApplicationContext(),
+                    "List added",
+                    Toast.LENGTH_LONG)
+                    .show();
             Log.i(TAG, "uh" );
         }
     }
