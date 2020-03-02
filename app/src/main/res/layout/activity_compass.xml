@@ -18,6 +18,7 @@
         android:name="com.google.android.gms.maps.SupportMapFragment"
         android:layout_width="380dp"
         android:layout_height="220dp"
+        android:importantForAccessibility="no"
         android:layout_marginLeft="0dp"
         android:layout_marginTop="60dp"
         tools:context=".MapsActivity" />
@@ -29,6 +30,7 @@
         android:layout_centerHorizontal="true"
         android:layout_marginTop="10dp"
         android:text="0°"
+        android:importantForAccessibility="no"
         android:textAlignment="center"
         android:textColor="#000"
         android:textSize="40sp"
@@ -45,7 +47,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif-condensed-medium"
-            android:importantForAccessibility="yes"
+            android:importantForAccessibility="no"
             android:text="veclopis"
             android:textColor="@color/common_google_signin_btn_text_dark_default"
             android:textSize="18sp" />
@@ -55,7 +57,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif-condensed-medium"
-            android:importantForAccessibility="yes"
+            android:importantForAccessibility="no"
             android:text="duration"
             android:textColor="@color/common_google_signin_btn_text_dark_default"
             android:textSize="18sp" />
@@ -65,7 +67,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="sans-serif-condensed-medium"
-            android:importantForAccessibility="yes"
+            android:importantForAccessibility="no"
             android:text="distance"
             android:textColor="@color/common_google_signin_btn_text_dark_default"
             android:textSize="18sp" />
@@ -98,7 +100,7 @@
         android:layout_below="@+id/txt_azimuth"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="200dp"
-        android:src="@drawable/compass"
+        android:src="@drawable/thing"
         android:visibility="visible"/>
 
     <ImageView
@@ -108,7 +110,7 @@
         android:layout_below="@+id/txt_azimuth"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="200dp"
-        android:src="@drawable/ddial"
+        android:src="@drawable/other_thing"
         android:visibility="visible"/>
 
     <ImageView
@@ -140,6 +142,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="470dp"
+        android:importantForAccessibility="no"
         android:background="@color/common_google_signin_btn_text_dark_default"
         android:text="Debug exit"
         android:textColor="@color/colorAccent" />
@@ -151,6 +154,7 @@
         android:layout_centerHorizontal="true"
         android:fontFamily="monospace"
         android:text="TextView"
+        android:importantForAccessibility="no"
         android:textAlignment="center"
         android:textColor="@color/colorAccent"
         android:textStyle="bold" />
