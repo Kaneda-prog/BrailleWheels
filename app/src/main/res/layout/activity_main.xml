@@ -6,11 +6,30 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <ImageView
+        android:id="@+id/bb"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="visible"
+        app:srcCompat="@color/sim_blue"
+        tools:layout_editor_absoluteY="25dp" />
+
+    <ImageView
+        android:id="@+id/sim"
+        android:layout_width="348dp"
+        android:layout_height="333dp"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.5"
+        app:layout_constraintStart_toStartOf="parent"
+        app:srcCompat="@drawable/sim"
+        tools:layout_editor_absoluteY="25dp" />
+
     <Button
         android:id="@+id/speak"
         android:layout_width="0dp"
         android:layout_height="95dp"
-        android:backgroundTint="@color/colorAccent"
+        android:backgroundTint="@color/color"
         android:fontFamily="sans-serif-condensed-medium"
         android:text="@string/start"
         android:textColor="@color/common_google_signin_btn_text_dark_default"
@@ -27,6 +46,7 @@
         android:layout_height="wrap_content"
         android:fontFamily="serif-monospace"
         android:textAlignment="center"
+        android:importantForAccessibility="yes"
         android:textAppearance="@style/TextAppearance.AppCompat.Body1"
         android:textColor="@color/colorPrimary"
         android:textStyle="bold"
@@ -34,18 +54,31 @@
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent" />
 
+    <Switch
+        android:id="@+id/enjoy"
+        style="@style/Animation.AppCompat.Tooltip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:importantForAccessibility="no"
+        android:switchTextAppearance="@style/TextAppearance.AppCompat.Body1"
+        android:text="Debug"
+        app:layout_constraintBottom_toTopOf="@+id/speak"
+        tools:layout_editor_absoluteX="314dp" />
+
     <RelativeLayout
         android:id="@+id/relativeLayout5"
         android:layout_width="416dp"
         android:layout_height="475dp"
+        android:importantForAccessibility="yes"
         app:layout_constraintBottom_toTopOf="@+id/speak"
         app:layout_constraintTop_toBottomOf="@+id/title"
-        tools:context="info.androidhive.jsonparsing.MainActivity"
         tools:layout_editor_absoluteX="-7dp">
 
         <ListView
             android:id="@+id/list"
             android:layout_width="fill_parent"
+            android:importantForAccessibility="yes"
             android:layout_height="wrap_content" />
+
     </RelativeLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
