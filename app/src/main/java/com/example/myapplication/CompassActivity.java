@@ -6,6 +6,9 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.app.VoiceInteractor;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -23,6 +26,7 @@ import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
+import com.android.volley.toolbox.HttpResponse;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
@@ -73,19 +77,33 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.ProtocolException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.UUID;
+
+import okhttp3.internal.http.HttpHeaders;
+import retrofit2.Retrofit;
+import retrofit2.converter.gson.GsonConverterFactory;
 
 import static java.lang.StrictMath.abs;
+import static java.sql.DriverManager.println;
 
 
 public class CompassActivity  extends AppCompatActivity implements LocationListener,
@@ -101,6 +119,28 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     private Button exitButton;
     private MediaPlayer mp;
 
+    Handler bluetoothIn;
+
+    final int handlerState = 0;
+
+    private BluetoothAdapter btAdapter = null;
+    private BluetoothSocket btSocket = null;
+    private StringBuilder recDataString = new StringBuilder();
+    private OutputStream outStream = null;
+
+    private static final int SolicitaAtivaçao = 1;
+
+    private static final int SolicitaConexao = 2;
+
+    //Entrada das informações para fazer a interação entre o celular e o módulo bluetooth
+    private BluetoothAdapter meuBluetooth = null;
+
+    // SPP UUID service - isso deve funcionar para a maioria dos dispositivos
+    private static final UUID MEU_UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+
+    // String para o endereço MAC
+    //quando usa lista de dispositivos, se não colocar igual a null da erro
+    private static String MAC = null;
 
     @Override
     public void onInit(int status) {
@@ -122,8 +162,8 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
     //double
     double mAzimuth;
-    private double lati = -22.93184;
-    private double longi = -43.17985;
+    private double lati = -22.93107;
+    private double longi = -43.17901;
     private double turn;
     public double mag;
 
@@ -180,7 +220,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     //Strings
     public static String busNumber;
     String distValue;
-    public static String line;
+    public static String line = MainActivity.linha;
     static public String stops1;
     static public String stops2;
     static public String stops3;
@@ -217,11 +257,56 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_compass);
+        meuBluetooth = BluetoothAdapter.getDefaultAdapter();
 
+        //Verifica se o didpositivo tem bluetooth
+        if(meuBluetooth == null){
+            //Se não tiver, a mensagem abaixo será mostrada e o programa será encerrado
+            Toast.makeText(getApplicationContext(), "Seu dispositivo não possui bluetooth", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        /*bluetoothIn = new Handler() {
+            public void handleMessage(android.os.Message msg) {
+                if (msg.what == handlerState) {										//se a mensagem é o que queremos,
+                    String readMessage = (String) msg.obj;                                                                // msg.arg1 = bytes de conexão thread
+                    recDataString.append(readMessage);      								//Pega os dados doa sensores até a string '~'
+                    int endOfLineIndex = recDataString.indexOf("~");                       // que determina o final de linha
+                    if (endOfLineIndex > 0) {
+                        String dataInPrint = recDataString.substring(0, endOfLineIndex);    // extrai a string
+                        Log.i(TAG,"Data Received = " + dataInPrint);
+                        int dataLength = dataInPrint.length();							//Pega o tamanho dos dados recebidos
+                        Log.i(TAG,"String Length = " + String.valueOf(dataLength));
+
+                        if (recDataString.charAt(0) == '#')								//se ele começa com # sabemos que é o que estamos procurando
+                        {
+                            String sensor0 = recDataString.substring(1, 5);             //obtem o valor do sensor entre índices 1-5
+
+                            Log.i(TAG," Sensor 0 Voltage = " + sensor0 + "cm");	//coloca o valor recebido no textview
+
+                        }
+                        recDataString.delete(0, recDataString.length()); 					//limpa as strings
+                        // strIncom =" ";
+                        dataInPrint = " ";
+                    }
+                }
+            }
+        };
+        //Se o bluetooth não estivver ativado, será solicitada a ativação do mesmo
+        //Através do intent, que inicia uma nova ação
+        if(!meuBluetooth.isEnabled()){
+            Intent solicita = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);//Cria o intent
+            startActivityForResult(solicita,SolicitaAtivaçao);//Starta o intent
+        }*/
         //Intent
         Intent intent = getIntent();
-        line = intent.getStringExtra("bubus");
-        line = line.replaceAll("[^0-9.]", "");
+        if(MainActivity.cool.isChecked()) {
+            line = MainActivity.linha;
+        }
+        else{
+            line = "133";
+        }
+        line = line.trim();
         stops1 = intent.getStringExtra("stops1");
         money = intent.getStringExtra("price");
         point1 = intent.getStringExtra("firstStop");
@@ -240,6 +325,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         checkBus.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
         exitButton = findViewById(R.id.exit);
         exitButton .setOnClickListener(this);
+
         //Images
         compass_img = findViewById(R.id.img_compass);
         busStop = findViewById(R.id.busStop);
@@ -261,7 +347,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         busAboard.setVisibility(View.INVISIBLE);
         busGo.setVisibility(View.INVISIBLE);
         fetchLastLocation();
-        //DebugPlace();
+        DebugPlace();
         createLocationRequest();
 
         handlerr = new Handler() {
@@ -284,6 +370,7 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
         super.onStart();
         Log.d(TAG, "onStart fired ..............");
         mGoogleApiClient.connect();
+        //conectar();
     }
     public void intent()
     {
@@ -317,6 +404,67 @@ public class CompassActivity  extends AppCompatActivity implements LocationListe
 
 
 return distance;
+    }
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        // TODO Auto-generated method stub
+        super.onActivityResult(requestCode, resultCode, data);
+
+        switch(requestCode){
+
+            case SolicitaAtivaçao:
+                if(resultCode ==Activity.RESULT_OK)//Se o bluetooth for ligado, a mensagem abaixo será mostrada
+                {                                   //E o progrma continuará sendo executado
+                    Toast.makeText(getApplicationContext(), "O BLUETOOTH FOI LIGADO!", Toast.LENGTH_LONG).show();
+                }else//Se o bluetooth não foi ativado, a mensagem abaixo será mostrada e o programa será fechado
+                {
+                    Toast.makeText(getApplicationContext(), "O BLUETOOTH NÃO FOI LIGADO!", Toast.LENGTH_LONG).show();
+                    finish();
+                }
+                break;
+
+            case SolicitaConexao:
+                if(resultCode==Activity.RESULT_OK){
+                    MAC = data.getExtras().getString(ListadeDispositivos.EnderecoMAC);
+
+                    //Para se ter um bluetoothdevice é necessário uilizar o BluetoothAdapter.getRemoteDevice(string)
+                    //Que representa um endereço Mac conhecido, que já foi apresentado no início
+                    BluetoothDevice device = meuBluetooth.getRemoteDevice(MAC);
+                    try{
+                        //A função device.createRfcommSocketToServiceRecord(MEU_UUID) abre m conexão
+                        //Entre o dispositivo e o módulo
+                        btSocket = device.createRfcommSocketToServiceRecord(MEU_UUID);
+                        //É iniciada a saída d dados do dispositivo
+                        btSocket.connect();
+
+                        //Se der tudo certo na hora da conexão, irá aparecer a tela do controle
+                        if(btSocket!=null){
+                            Toast.makeText(getApplicationContext(), "A CONEXÃO FOI BEM SUCEDIDA!", Toast.LENGTH_LONG).show();
+                        }
+                    }catch(IOException e){
+                        Toast.makeText(getApplicationContext(), "ERRO AO FAZER CONEXÃO", Toast.LENGTH_LONG).show();
+                    }
+
+                }else{
+                    Toast.makeText(getApplicationContext(), "Falha ao obter o endereço MAC", Toast.LENGTH_LONG).show();
+                }
+                break;
+        }
+    }
+    public void conectar(){
+        Intent abreLista = new Intent(CompassActivity.this,ListadeDispositivos.class);
+        startActivityForResult(abreLista, SolicitaConexao);
+    }
+
+    //Definição da função desconectar
+    public void desconectar(){
+        try{
+            btSocket.close();//Fecha a conexão
+            btSocket = null;//E a conexão volta a ser nula
+
+        }catch(IOException e){
+
+        }
     }
     public void Instructions(double azimuth) {
         if (mAzimuth < 180 && !way) {
@@ -352,8 +500,9 @@ return distance;
     }
     //TODO: remove debug lixeira location
     private void DebugPlace() {
-        busLocation.setLatitude(lati);
-        busLocation.setLongitude(longi);
+        pPosition = new Location("aak");
+        pPosition.setLatitude(lati);
+        pPosition.setLongitude(longi);
     }
     @Override
     protected void onResume() {
@@ -386,6 +535,7 @@ return distance;
             if (busNumber != null)
                 if (aboardBus == false) {
                     fetchLastLocation();
+                    Log.i(TAG, "LINHAA" + line);
                 }
             handler.postDelayed(runnable2, delay);
         }, delay);
@@ -550,8 +700,8 @@ return distance;
             // Show rationale and request permission.
         }
         if (busLocation != null) {
-            //busLocation.setLatitude(lati);
-            //busLocation.setLongitude(longi);
+            pPosition.setLatitude(lati);
+            pPosition.setLongitude(longi);
 
             //Remove existing busStop marker
             if (marker != null) {
@@ -570,7 +720,7 @@ return distance;
     @Override
     public void onLocationChanged(Location location) {
         previouslatLng = new LatLng(location.getLatitude(), location.getLongitude());
-        pPosition = location;
+        ////pPosition = location;
         duration.setText( pPosition.getLatitude() + ", " + pPosition.getLongitude());
         double rota = 0.0;
         double startrota = 0.0;
@@ -616,85 +766,87 @@ return distance;
             pd.setCancelable(false);
             pd.show();
         }
+
         @Override
         protected Void doInBackground(Void... arg0) {
             Http sh = new Http();
             // Making a request to url and getting response
-            String jsonJedi = sh.makeServiceCall("http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/" + line + ".json");
+            Log.i(TAG, " A linha linha "+ line + ".");
+            String url = "http://dadosabertos.rio.rj.gov.br/apiTransporte/apresentacao/rest/index.cfm/onibus/" + line +".json";
+            String jsonJedi = sh.makeServiceCall(url );
             if (jsonJedi != null) {
                 try {
+
                     JSONObject jsonObj = new JSONObject(jsonJedi.substring(jsonJedi.indexOf("{"), jsonJedi.lastIndexOf("}") + 1));
                     // Getting JSON Array node
-                        JSONArray points = jsonObj.getJSONArray("DATA");
-                        //Bus location array
-                        double latitudes[];
-                        latitudes = new double[points.length()];
-                        double longitudes[];
-                        longitudes = new double[points.length()];
-                        //Bus distance array
-                        double distanceLat[];
-                        distanceLat = new double[points.length()];
-                        double distanceLng[];
-                        distanceLng = new double[points.length()];
-                        //Sum of lat an lng distances
-                        double calculations[];
-                        calculations = new double[points.length()];
-                        //Bus id for each instance
-                        String algorithmBus[];
-                        algorithmBus = new String[points.length()];
+                    JSONArray points = jsonObj.getJSONArray("DATA");
+                    //Bus location array
+                    double latitudes[];
+                    latitudes = new double[points.length()];
+                    double longitudes[];
+                    longitudes = new double[points.length()];
+                    //Bus distance array
+                    double distanceLat[];
+                    distanceLat = new double[points.length()];
+                    double distanceLng[];
+                    distanceLng = new double[points.length()];
+                    //Sum of lat an lng distances
+                    double calculations[];
+                    calculations = new double[points.length()];
+                    //Bus id for each instance
+                    String algorithmBus[];
+                    algorithmBus = new String[points.length()];
 
                     int speed[];
                     speed = new int[points.length()];
                     //Looping thought the buses
                     for (int i = 0; i < points.length(); i++) {
 
-                           JSONArray bus = points.getJSONArray(i);
-                           //Bus location lat and lng
-                           latitudes[i] = bus.getDouble(3);
-                           longitudes[i] = bus.getDouble(4);
+                        JSONArray bus = points.getJSONArray(i);
+                        //Bus location lat and lng
+                        latitudes[i] = bus.getDouble(3);
+                        longitudes[i] = bus.getDouble(4);
 
 
-                           //Bus id for each instance
-                           algorithmBus[i] = bus.getString(1);
-                           //Bus speed
-                            speed[i] = bus.getInt(5);
-                           if(busSelected == false) {
-                           //Bus - current Location
-                               distanceLat[i] = abs(abs(latitudes[i]) - abs(pPosition.getLatitude()));
-                               distanceLng[i] = abs(abs(longitudes[i]) - abs(pPosition.getLongitude()));
-                           //Sum of lat and lng
-                               calculations[i] = distanceLat[i] + distanceLng[i];
-                           }
-                            else{
-                                if(algorithmBus[i] == busNumber)
-                                {
-                               //busNumber = algorithmBus[i];
-                               busLocation.setLatitude(latitudes[i]);
-                               busLocation.setLongitude(longitudes[i]);
-                               veclopis = speed[i];
-                               nowLocation = latitudes[i] + "," + longitudes[i];
+                        //Bus id for each instance
+                        algorithmBus[i] = bus.getString(1);
+                        //Bus speed
+                        speed[i] = bus.getInt(5);
+                        if (busSelected == false) {
+                            //Bus - current Location
+                            distanceLat[i] = abs(abs(latitudes[i]) - abs(pPosition.getLatitude()));
+                            distanceLng[i] = abs(abs(longitudes[i]) - abs(pPosition.getLongitude()));
+                            //Sum of lat and lng
+                            calculations[i] = distanceLat[i] + distanceLng[i];
+                        } else {
+                            if (algorithmBus[i] == busNumber) {
+                                //busNumber = algorithmBus[i];
+                                busLocation.setLatitude(latitudes[i]);
+                                busLocation.setLongitude(longitudes[i]);
+                                veclopis = speed[i];
+                                nowLocation = latitudes[i] + "," + longitudes[i];
 
-                                }
-                                }
+                            }
+                        }
                     }
                     double great = Arrays.stream(calculations).min().getAsDouble();
-                   if(busSelected == false) {
-                       for (int i = 0; i < calculations.length; i++) {
-                           if (calculations[i] == great) {
-                               index = i;
-                               Log.i(TAG, "Bus at order: "+ index + "is the closest.");
-                               busNumber = algorithmBus[index];
-                               veclopis = speed[index];
-                               nowLocation = latitudes[index] + "," + longitudes[index];
+                    if (busSelected == false) {
+                        for (int i = 0; i < calculations.length; i++) {
+                            if (calculations[i] == great) {
+                                index = i;
+                                Log.i(TAG, "Bus at order: " + index + "is the closest.");
+                                busNumber = algorithmBus[index];
+                                veclopis = speed[index];
+                                nowLocation = latitudes[index] + "," + longitudes[index];
 
-                           }
-                       }
-                       busLocation = new Location("abc");
-                       busLocation.setLatitude(latitudes[index]);
-                       busLocation.setLongitude(longitudes[index]);
-                   }
+                            }
+                        }
+                        busLocation = new Location("abc");
+                        busLocation.setLatitude(latitudes[index]);
+                        busLocation.setLongitude(longitudes[index]);
+                    }
 
-                       Log.i(TAG, "Bus location at warming: " + busLocation.getLatitude() + ", " + busLocation.getLongitude() + "Stop location at warming: " + pPosition.getLatitude() + ", " + pPosition.getLongitude());
+                    Log.i(TAG, "Bus location at warming: " + busLocation.getLatitude() + ", " + busLocation.getLongitude() + "Stop location at warming: " + pPosition.getLatitude() + ", " + pPosition.getLongitude());
 
                 } catch (final JSONException e) {
                     Log.e(TAG, "Json parsing error: " + e.getMessage());
@@ -724,12 +876,12 @@ return distance;
         @Override
         protected void onPostExecute(Void result) {
             super.onPostExecute(result);
-           // Dismiss the progress dialog
+            // Dismiss the progress dialog
             if (pd.isShowing())
                 pd.dismiss();
-            //DebugPlace();
+            DebugPlace();
             dis = Math.round(busLocation.distanceTo(pPosition));
-            if(!aboardBus) {
+            if (!aboardBus) {
                 if (dis < 50.0f) {
                     busGo.setVisibility(View.VISIBLE);
                     busClose = true;
@@ -743,25 +895,22 @@ return distance;
                         if (veclopis == 0 && !busAtStop) {
                             busAtStop = true;
                             playMusic("busready");
-                            mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener()
-                            {
+                            mp.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
                                 @Override
-                                public void onCompletion(MediaPlayer mp)
-                                {
+                                public void onCompletion(MediaPlayer mp) {
                                     tts.setLanguage(Locale.forLanguageTag("pt"));
                                     tts.speak("Seu ônibus parou. Siga as próximas instruções!", TextToSpeech.QUEUE_ADD, null);
 
                                 }
                             });
 
-                               }
+                        }
                         //Aboard the busStop
                         if (dis < 2) {
                             aboardBus = true;
                             intent();
                         }
-                    }
-                    else {
+                    } else {
                         //float val = Math.round(dis/veclopis);
                         //duration.setText("Tempo de chegada: " + val + ".");
                         //tts.setLanguage(Locale.forLanguageTag("pt"));
@@ -771,66 +920,39 @@ return distance;
                         tts.speak("Há um ônibus perto. Sinalize para o " + busNumber, TextToSpeech.QUEUE_ADD, null);
 
                     }
-                }
-                else {
+                } else {
                     busStop.setVisibility(View.INVISIBLE);
                     busGo.setVisibility(View.INVISIBLE);
-                    //new busDriving().execute();
+
                 }
-                if(busAtStop) {
+                if (busAtStop) {
                     busStop.setVisibility(View.VISIBLE);
                     busGo.setVisibility(View.INVISIBLE);
                     busSelected = true;
                 }
-                if(!busAtStop) {
+                if (!busAtStop) {
                     busStop.setVisibility(View.INVISIBLE);
                     busSelected = false;
                 }
+                new busDriving().execute();
             }
-            lineView.setText(busNumber + " --- "+ line);
-            velocity.setText("Dirige a " + veclopis + getString(R.string.speed ));
-            dist.setText(getString(R.string.onibus)+ dis + getString(R.string.metro));
+            lineView.setText(busNumber + " --- " + line);
+            velocity.setText("Dirige a " + veclopis + getString(R.string.speed));
+            dist.setText(getString(R.string.onibus) + dis + getString(R.string.metro));
             sayInfo();
             SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                     .findFragmentById(R.id.map);
             mapFragment.getMapAsync(CompassActivity.this);
             start();
 
-            RequestQueue queue = Volley.newRequestQueue(getApplicationContext());
-            URL url = null;
-            try {
-                url = new URL("http://api.olhovivo.sptrans.com.br/v2.1");
-                HttpURLConnection con = (HttpURLConnection)url.openConnection();
-                con.setRequestMethod("POST");
-                con.setRequestProperty("Content-Type", "application/json; utf-8");
-                con.setDoOutput(true);
-                String jsonInputString = "/Login/Autenticar?token=aa578a3a758b2b862d5c990057cad8b238699c1a540a65130f985b713b2c51e1";
-                try(OutputStream os = con.getOutputStream()) {
-                    byte[] input = jsonInputString.getBytes("utf-8");
-                    os.write(input, 0, input.length);
-                    try(BufferedReader br = new BufferedReader(
-                            new InputStreamReader(con.getInputStream(), "utf-8"))) {
-                        StringBuilder response = new StringBuilder();
-                        String responseLine = null;
-                        while ((responseLine = br.readLine()) != null) {
-                            response.append(responseLine.trim());
-                        }
-                        System.out.println(response.toString());
-                    }
-                }
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            } catch (UnsupportedEncodingException e) {
-                e.printStackTrace();
-            } catch (ProtocolException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+                String urlParameters = "/Login/Autenticar?token=aa578a3a758b2b862d5c990057cad8b238699c1a540a65130f985b713b2c51e1";
+                //url = new URL("http://api.olhovivo.sptrans.com.br/v2.1");
+
 
 
         }
-    }
+
+}
     public void sayInfo()
     {
         tts.setLanguage(Locale.forLanguageTag("pt"));
@@ -838,6 +960,8 @@ return distance;
         if(veclopis != 0) {
             tts.speak(getString(R.string.ui) + veclopis + " " + getString(R.string.speed), TextToSpeech.QUEUE_ADD, null);
         }
+        tts.setLanguage(Locale.forLanguageTag("pt"));
+        tts.speak("Tempo de chegada: " + value, TextToSpeech.QUEUE_ADD, null);
     }
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -930,7 +1054,7 @@ return distance;
             if (pd.isShowing())
                 pd.dismiss();
             Log.i(TAG, "Tempo de chegada: " + value);
-            duration.setText("Tempo de chegada: " + value + ".");
+            duration.setText("Tempo de chegada: " + "1 minuto" + ".");
             tts.setLanguage(Locale.forLanguageTag("pt"));
             tts.speak("Tempo de chegada: " + value, TextToSpeech.QUEUE_ADD, null);
 
@@ -961,8 +1085,8 @@ return distance;
 
         if(busLocation != null && pPosition != null){
             //TODO: remove debug lixeira location
-            //busLocation.setLatitude(lati);
-            //busLocation.setLongitude(longi);
+            pPosition.setLatitude(lati);
+            pPosition.setLongitude(longi);
             toBus(pPosition.getLatitude(), pPosition.getLongitude(), busLocation.getLatitude(), busLocation.getLongitude());
         }
         mAzimuth = Math.round(mAzimuth);

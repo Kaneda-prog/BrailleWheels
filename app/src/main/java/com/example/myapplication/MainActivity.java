@@ -100,6 +100,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
     private AccessibilityEvent accessibilityEvent;
     public static boolean sp;
     public static boolean rj;
+    public static String linha;
 
 
     @Override
@@ -172,12 +173,14 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
                 Intent in = new Intent(getApplicationContext(), CompassActivity.class);
                 TextView money = view.findViewById(R.id.price);
                 TextView line1 = view.findViewById(R.id.busNumber0);
+                linha = (String) line1.getText();
+                Log.i(TAG, " a linha bela " + linha);
                 TextView firstEtape = view.findViewById(R.id.stopLocation0);
                 TextView firstStops = view.findViewById(R.id.stopNum0);
                 in.putExtra("firstStop",firstEtape.getText());
                 in.putExtra("price", money.getText());
                 in.putExtra("stops1",firstStops.getText());
-                in.putExtra("bubus", line1.getText());
+                in.putExtra("bubus", linha);
                 BUS_NUMBER = firstEtape.toString();
                 if(view.findViewById(R.id.stopLocation1) != null)
                 {
@@ -337,7 +340,7 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
         protected Void doInBackground(Void... arg0) {
             Https sh = new Https();
 
-            String jsonStr = sh.makeServiceCall("https://maps.googleapis.com/maps/api/directions/json?origin="+latLng+"&destination="+voice+"%2CRio+de+Janeiro&region=br&mode=transit&alternatives=true&transit_mode=bus&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag");
+            String jsonStr = sh.makeServiceCall("https://maps.googleapis.com/maps/api/directions/json?origin="+latLng+"&destination="+voice+"&2CRio+de+Janeiro&mode=transit&alternatives=true&transit_mode=bus&key=AIzaSyA2n7hH6W6cHvZdRX2kBmL0b21ev6WWjag");
 
 
             Log.d(TAG, "Response from url: " + jsonStr);
@@ -540,10 +543,10 @@ public class MainActivity extends AppCompatActivity implements OnClickListener, 
                     R.id.duration, R.id.price, R.id.distance, R.id.busNumber0, R.id.busNumber1, R.id.busNumber2, R.id.route, R.id.stops, R.id.stopLocation0,R.id.stopLocation1,R.id.stopLocation2,R.id.stopNum0,R.id.stopNum1,R.id.stopNum2});
             myList.setAdapter(adapter);
             myList.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_FOCUSED);
-            accessibilityEvent.getText().add("Text to be spoken by TalkBack");
+           /* accessibilityEvent.getText().add("Text to be spoken by TalkBack");
             if (accessibilityManager != null) {
                 accessibilityManager.sendAccessibilityEvent(accessibilityEvent);
-            }
+            }*/
             List<Place.Field> placeFields = Arrays.asList(Place.Field.ID, Place.Field.NAME);
 
 // Construct a request object, passing the place ID and fields array.
